@@ -2,6 +2,10 @@
 
 Fast terminal endless runner written in Go, rendered with ANSI color and half-block pixels.
 
+| Start | Game Over |
+| --- | --- |
+| ![Start Screen](assets/start.png) | ![Game Over Screen](assets/game_over.png) |
+
 ## Highlights
 
 - Custom pixel-art sprites:
