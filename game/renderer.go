@@ -34,8 +34,8 @@ const (
 var colorMap = map[PixelColor]tcell.Color{
 	ColorWhite:       tcell.ColorWhite,
 	ColorBlack:       tcell.NewRGBColor(16, 13, 12),
-	ColorGray:        tcell.NewRGBColor(83, 83, 83),
-	ColorGrayDark:    tcell.NewRGBColor(55, 55, 55),
+	ColorGray:        tcell.NewRGBColor(190, 190, 190),
+	ColorGrayDark:    tcell.NewRGBColor(155, 155, 155),
 	ColorBrownDark:   tcell.NewRGBColor(96, 46, 10),
 	ColorBrownMid:    tcell.NewRGBColor(163, 88, 24),
 	ColorBrownLight:  tcell.NewRGBColor(215, 136, 39),
