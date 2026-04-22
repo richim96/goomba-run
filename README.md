@@ -1,4 +1,4 @@
-# Goomba CLI Runner
+# Goomba Run CLI
 
 Fast terminal endless runner written in Go, rendered with ANSI color and half-block pixels.
 
