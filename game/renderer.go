@@ -12,6 +12,8 @@ const (
 	ColorTransparent PixelColor = iota
 	ColorWhite
 	ColorBlack
+	ColorGray
+	ColorGrayDark
 	ColorBrownDark
 	ColorBrownMid
 	ColorBrownLight
@@ -32,6 +34,8 @@ const (
 var colorMap = map[PixelColor]tcell.Color{
 	ColorWhite:       tcell.ColorWhite,
 	ColorBlack:       tcell.NewRGBColor(16, 13, 12),
+	ColorGray:        tcell.NewRGBColor(83, 83, 83),
+	ColorGrayDark:    tcell.NewRGBColor(55, 55, 55),
 	ColorBrownDark:   tcell.NewRGBColor(96, 46, 10),
 	ColorBrownMid:    tcell.NewRGBColor(163, 88, 24),
 	ColorBrownLight:  tcell.NewRGBColor(215, 136, 39),
@@ -252,25 +256,27 @@ func (r *Renderer) drawTooSmall() {
 
 func (r *Renderer) drawGround(g *Game, buffer *PixelBuffer) {
 	for x := 0; x < buffer.W; x++ {
-		buffer.Set(x, g.groundY, ColorWhite)
+		buffer.Set(x, g.groundY, ColorGray)
 	}
 
-	shift := int(g.scroll) % 12
-	for start := -shift; start < buffer.W+12; start += 12 {
-		for dx := 0; dx < 5; dx++ {
-			buffer.Set(start+dx, g.groundY+2, ColorWhite)
-		}
+	shift := int(g.scroll) % 16
+	for start := -shift; start < buffer.W+16; start += 16 {
+		buffer.Set(start, g.groundY+2, ColorGrayDark)
+		buffer.Set(start+1, g.groundY+2, ColorGrayDark)
 	}
-
-	for start := -(shift / 2); start < buffer.W+10; start += 9 {
-		buffer.Set(start, g.groundY+4, ColorWhite)
-		buffer.Set(start+1, g.groundY+4, ColorWhite)
+	for start := -(shift/2+7)%13; start < buffer.W+13; start += 13 {
+		buffer.Set(start, g.groundY+3, ColorGrayDark)
 	}
 }
 
 func (r *Renderer) drawObstacles(g *Game, buffer *PixelBuffer) {
 	for _, obstacle := range g.obstacles {
-		DrawSprite(buffer, obstacle.Sprite, int(obstacle.X), g.groundY-obstacle.Sprite.H)
+		sp := obstacle.CurSprite()
+		y := g.groundY - sp.H
+		if obstacle.BaseY != 0 {
+			y = obstacle.BaseY
+		}
+		DrawSprite(buffer, sp, int(obstacle.X), y)
 	}
 }
 

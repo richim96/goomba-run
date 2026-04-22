@@ -4,7 +4,13 @@ import "math"
 
 type Obstacle struct {
 	X      float64
-	Sprite Sprite
+	BaseY  int // 0 = ground-anchored (groundY - sprite.H); else absolute top-Y in world pixels
+	Frames []Sprite
+	frame  int
+}
+
+func (o Obstacle) CurSprite() Sprite {
+	return o.Frames[o.frame]
 }
 
 type Rect struct {
@@ -22,11 +28,16 @@ func (r Rect) Intersects(other Rect) bool {
 }
 
 func (o Obstacle) Bounds(groundY int) Rect {
+	sp := o.CurSprite()
+	y := groundY - sp.H
+	if o.BaseY != 0 {
+		y = o.BaseY
+	}
 	return Rect{
 		X: int(math.Round(o.X)),
-		Y: groundY - o.Sprite.H,
-		W: o.Sprite.W,
-		H: o.Sprite.H,
+		Y: y,
+		W: sp.W,
+		H: sp.H,
 	}
 }
 
@@ -40,7 +51,10 @@ func (g *Game) updateObstacles(dt float64) {
 	next := g.obstacles[:0]
 	for _, obstacle := range g.obstacles {
 		obstacle.X -= g.speed * dt
-		if obstacle.X+float64(obstacle.Sprite.W) >= 0 {
+		if len(obstacle.Frames) > 1 {
+			obstacle.frame = (g.tickCount / 7) % len(obstacle.Frames)
+		}
+		if obstacle.X+float64(obstacle.Frames[0].W) >= 0 {
 			next = append(next, obstacle)
 		}
 	}
@@ -56,12 +70,27 @@ func (g *Game) spawnObstacle() {
 		}
 	}
 
-	sprite := g.obstacleSet[g.rng.Intn(len(g.obstacleSet))]
-	obstacle := Obstacle{
-		X:      float64(g.worldW + 4 + g.rng.Intn(10)),
-		Sprite: sprite,
+	x := float64(g.worldW + 4 + g.rng.Intn(10))
+
+	// 30% chance of bird once score is high enough
+	if g.score > 15 && g.rng.Float64() < 0.30 {
+		frames := birdFrames()
+		// two fly heights: low (just above standing player) or high (forces double-jump)
+		var baseY int
+		if g.rng.Intn(2) == 0 {
+			baseY = g.groundY - g.player.Height() - 10
+		} else {
+			baseY = g.groundY - g.player.Height() - 20
+		}
+		if baseY < 2 {
+			baseY = 2
+		}
+		g.obstacles = append(g.obstacles, Obstacle{X: x, BaseY: baseY, Frames: frames})
+		return
 	}
-	g.obstacles = append(g.obstacles, obstacle)
+
+	sprite := g.obstacleSet[g.rng.Intn(len(g.obstacleSet))]
+	g.obstacles = append(g.obstacles, Obstacle{X: x, Frames: []Sprite{sprite}})
 }
 
 func (g *Game) nextSpawnDelay() float64 {
@@ -80,21 +109,28 @@ func (g *Game) trimObstacles() {
 
 	next := g.obstacles[:0]
 	for _, obstacle := range g.obstacles {
-		if obstacle.X < float64(g.worldW+obstacle.Sprite.W) {
+		if obstacle.X < float64(g.worldW+obstacle.Frames[0].W) {
 			next = append(next, obstacle)
 		}
 	}
 	g.obstacles = next
 }
 
-func (g *Game) scaleObstacles(prevWorldW, worldW int) {
+func (g *Game) scaleObstacles(prevWorldW, worldW, prevWorldH, worldH int) {
 	if prevWorldW <= 0 || worldW <= 0 || prevWorldW == worldW {
 		return
 	}
 
-	scale := float64(worldW) / float64(prevWorldW)
+	xScale := float64(worldW) / float64(prevWorldW)
+	yScale := 1.0
+	if prevWorldH > 0 {
+		yScale = float64(worldH) / float64(prevWorldH)
+	}
 	for index := range g.obstacles {
-		g.obstacles[index].X *= scale
+		g.obstacles[index].X *= xScale
+		if g.obstacles[index].BaseY != 0 {
+			g.obstacles[index].BaseY = int(math.Round(float64(g.obstacles[index].BaseY) * yScale))
+		}
 	}
 }
 
@@ -120,59 +156,108 @@ func ObstacleSprites() []Sprite {
 		smallCactusSprite(),
 		wideCactusSprite(),
 		tallCactusSprite(),
+		clusterCactusSprite(),
 	}
 }
 
-func smallCactusSprite() Sprite {
-	return SpriteFromRunes(8, []string{
-		"...##...",
-		"..####..",
-		"..####..",
-		".#####..",
-		"#######.",
-		"..####..",
-		"..####..",
-		"..####..",
-		".#####..",
-		"........",
-	}, whitePalette())
-}
-
-func wideCactusSprite() Sprite {
-	return SpriteFromRunes(14, []string{
-		"...##.....##..",
-		"..####...####.",
-		"..####...####.",
-		".#####...#####",
-		"##############",
-		"..####...####.",
-		"..####...####.",
-		"..####...####.",
-		".#####...#####",
-		"..............",
-	}, whitePalette())
-}
-
-func tallCactusSprite() Sprite {
-	return SpriteFromRunes(10, []string{
-		"...##.....",
-		"..####....",
-		"..####....",
-		"..####....",
-		".#####....",
-		"######..##",
-		"..####.###",
-		"..####.##.",
-		"..####....",
-		"..####....",
-		".#####....",
-		"..........",
-	}, whitePalette())
-}
-
-func whitePalette() map[rune]PixelColor {
+func grayPalette() map[rune]PixelColor {
 	return map[rune]PixelColor{
 		'.': ColorTransparent,
-		'#': ColorWhite,
+		'#': ColorGray,
+		'@': ColorGrayDark,
 	}
+}
+
+// smallCactusSprite — single slim cactus, Chrome-dino style
+func smallCactusSprite() Sprite {
+	return SpriteFromRunes(7, []string{
+		"...#...",
+		"...#...",
+		".#.#...",
+		".####..",
+		"...#...",
+		"...#...",
+		"...#...",
+		"...#...",
+		"...#...",
+		".......",
+	}, grayPalette())
+}
+
+// wideCactusSprite — two slim cacti side by side
+func wideCactusSprite() Sprite {
+	return SpriteFromRunes(13, []string{
+		"...#.....#...",
+		"...#.....#...",
+		".#.#.....#.#.",
+		".####...####.",
+		"...#.....#...",
+		"...#.....#...",
+		"...#.....#...",
+		"...#.....#...",
+		"...#.....#...",
+		".............",
+	}, grayPalette())
+}
+
+// tallCactusSprite — single tall cactus with two arms
+func tallCactusSprite() Sprite {
+	return SpriteFromRunes(9, []string{
+		"....#....",
+		"....#....",
+		"....#....",
+		".#..#....",
+		".####....",
+		"....#..#.",
+		"....####.",
+		"....#....",
+		"....#....",
+		"....#....",
+		"....#....",
+		"....#....",
+		".........",
+	}, grayPalette())
+}
+
+// clusterCactusSprite — three slim cacti at varying heights
+func clusterCactusSprite() Sprite {
+	return SpriteFromRunes(15, []string{
+		"....#..........",
+		"....#..........",
+		".#..#.....#....",
+		".####....##....",
+		"....#...#.#....",
+		"....#...####...",
+		"....#.....#....",
+		"....#.....#....",
+		"....#.....#....",
+		"...............",
+	}, grayPalette())
+}
+
+// birdFrames — two-frame pterodactyl animation
+func birdFrames() []Sprite {
+	p := grayPalette()
+
+	// wings up
+	up := SpriteFromRunes(14, []string{
+		"#...........#.",
+		"##.........##.",
+		"##############",
+		"..####..####..",
+		"....####......",
+		"....#..#......",
+	}, p)
+
+	// wings down
+	down := SpriteFromRunes(14, []string{
+		"....#..#......",
+		"....####......",
+		"..####..####..",
+		"##############",
+		"##.........##.",
+		"#...........#.",
+	}, p)
+
+	return []Sprite{up, down}
 }
