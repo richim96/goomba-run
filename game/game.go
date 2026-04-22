@@ -222,7 +222,7 @@ func (g *Game) syncLayout(forceReset bool) {
 	}
 
 	if prevWorldW > 0 && prevWorldH > 0 {
-		g.scaleObstacles(prevWorldW, g.worldW)
+		g.scaleObstacles(prevWorldW, g.worldW, prevWorldH, g.worldH)
 	}
 
 	if g.player.Kicked && prevWorldW > 0 && prevWorldH > 0 {
