@@ -230,7 +230,7 @@ func (r *Renderer) Draw(g *Game) error {
 	r.drawObstacles(g, buffer)
 	r.drawRichi(g, buffer)
 	r.drawPlayer(g, buffer)
-	r.blit(buffer, g.viewX, g.playfieldTop())
+	r.blit(buffer, g.viewX, g.playFieldTop())
 	r.drawOverlay(g)
 
 	r.screen.Show()
@@ -294,7 +294,7 @@ func (r *Renderer) drawRichi(g *Game, buffer *PixelBuffer) {
 func (r *Renderer) drawOverlay(g *Game) {
 	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorDefault)
 	centerX := g.viewX + g.worldW/2
-	centerY := g.playfieldTop() + g.playfieldRows()/3
+	centerY := g.playFieldTop() + g.playFieldRows()/3
 
 	if g.paused {
 		r.drawCentered(centerX, centerY, "PAUSED", style)

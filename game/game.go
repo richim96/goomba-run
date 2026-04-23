@@ -68,10 +68,10 @@ type Game struct {
 }
 
 func (g *Game) anchoredPlayerX() int {
-	anchoredPlayerX := int(math.Round(float64(g.worldW)*playerAnchorX)) - g.player.Width()/2
-	if anchoredPlayerX < 8 {
-		anchoredPlayerX = 8
-	}
+	anchoredPlayerX := max(
+		int(math.Round(float64(g.worldW)*playerAnchorX))-g.player.Width()/2,
+		8,
+	)
 	maxPlayerX := g.worldW - g.player.Width() - 4
 	if anchoredPlayerX > maxPlayerX {
 		anchoredPlayerX = maxPlayerX
@@ -195,8 +195,8 @@ func (g *Game) syncLayout(forceReset bool) {
 	prevWorldH := g.worldH
 	g.cellW, g.cellH = g.screen.Size()
 	g.tooSmall = g.cellW < minScreenWidth || g.cellH < minScreenHeight
-	availableRows := maxInt(1, g.cellH-hudLines)
-	availableW := maxInt(1, g.cellW)
+	availableRows := max(1, g.cellH-hudLines)
+	availableW := max(1, g.cellW)
 	availableH := availableRows * 2
 	targetAspect := float64(baseWorldW) / float64(baseWorldH)
 
@@ -207,11 +207,11 @@ func (g *Game) syncLayout(forceReset bool) {
 		worldW = int(math.Round(float64(worldH) * targetAspect))
 	}
 
-	g.worldW = maxInt(1, worldW)
-	g.worldH = maxInt(8, worldH)
+	g.worldW = max(1, worldW)
+	g.worldH = max(8, worldH)
 	usedRows := (g.worldH + 1) / 2
-	g.viewX = maxInt(0, (g.cellW-g.worldW)/2)
-	g.viewY = maxInt(0, (availableRows-usedRows)/2)
+	g.viewX = max(0, (g.cellW-g.worldW)/2)
+	g.viewY = max(0, (availableRows-usedRows)/2)
 	g.groundY = g.worldH - 6
 	anchoredPlayerX := g.anchoredPlayerX()
 
@@ -320,11 +320,11 @@ func (g *Game) registerHit() {
 	}
 }
 
-func (g *Game) playfieldRows() int {
+func (g *Game) playFieldRows() int {
 	return (g.worldH + 1) / 2
 }
 
-func (g *Game) playfieldTop() int {
+func (g *Game) playFieldTop() int {
 	return hudLines + g.viewY
 }
 
@@ -355,11 +355,4 @@ func (g *Game) togglePause() {
 		return
 	}
 	g.paused = !g.paused
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
