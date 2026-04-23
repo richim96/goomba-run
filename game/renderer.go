@@ -172,12 +172,12 @@ func DrawSpriteScaled(buffer *PixelBuffer, sprite Sprite, x, y int, scale float6
 	}
 
 	w, h := ScaledSpriteSize(sprite, scale)
-	for yy := 0; yy < h; yy++ {
+	for yy := range h {
 		srcY := int(float64(yy) / scale)
 		if srcY >= sprite.H {
 			srcY = sprite.H - 1
 		}
-		for xx := 0; xx < w; xx++ {
+		for xx := range w {
 			srcX := int(float64(xx) / scale)
 			if srcX >= sprite.W {
 				srcX = sprite.W - 1
@@ -318,7 +318,7 @@ func (r *Renderer) drawOverlay(g *Game) {
 
 func (r *Renderer) blit(buffer *PixelBuffer, xOffset, yOffset int) {
 	rows := (buffer.H + 1) / 2
-	for cellY := 0; cellY < rows; cellY++ {
+	for cellY := range rows {
 		for x := 0; x < buffer.W; x++ {
 			top := buffer.At(x, cellY*2)
 			bottom := buffer.At(x, cellY*2+1)
@@ -352,17 +352,11 @@ func (r *Renderer) drawText(x, y int, text string, style tcell.Style) {
 }
 
 func (r *Renderer) drawRightText(rightX, y int, text string, style tcell.Style) {
-	start := rightX - len([]rune(text)) + 1
-	if start < 0 {
-		start = 0
-	}
+	start := max(rightX - len([]rune(text)) + 1, 0)
 	r.drawText(start, y, text, style)
 }
 
 func (r *Renderer) drawCentered(x, y int, text string, style tcell.Style) {
-	start := x - len([]rune(text))/2
-	if start < 0 {
-		start = 0
-	}
+	start := max(x - len([]rune(text))/2, 0)
 	r.drawText(start, y, text, style)
 }
