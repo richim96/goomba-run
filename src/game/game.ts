@@ -18,12 +18,21 @@ const MAX_FALL = 640;
 const COYOTE = 0.09;
 const JUMP_BUFFER = 0.12;
 
-const SPEED_START = 100;
-const SPEED_MAX = 225;
+const SPEED_START = 105;
+/** reached around 1200 m; after that it only creeps up */
+const SPEED_MAX = 220;
+const SPEED_CREEP_FROM = 1200; // metres
+const SPEED_CREEP = 0.03; // px/s per metre past that
+const SPEED_CREEP_MAX = 60;
 const PX_PER_METER = 14;
 const MAX_LIVES = 3;
 const INVULN = 1.5;
 const BERRY_POINTS = 10;
+const RICHI_HOP_V = -460;
+// the catch celebration: Richi tosses the Goomba up and catches it, over and over
+const TOSS_PERIOD = 1.15; // seconds per toss
+const TOSS_AIR = 0.6; // share of that spent in the air
+const TOSS_HEIGHT = 18; // px
 
 /** where Richi runs for each number of hearts left */
 const RICHI_X = [PLAYER_X - 8, 62, 30, 2];
@@ -58,6 +67,9 @@ export interface Obstacle {
   baseY: number;
   t: number;
   phase: number;
+  /** upward speed once a Stingby has missed and is buzzing off */
+  rise: number;
+  hint?: string;
 }
 
 export interface Pickup {
@@ -92,7 +104,7 @@ export interface Cloud {
 }
 
 type GoombaAnim = 'idle' | 'run' | 'jump' | 'fall' | 'land' | 'hurt' | 'love';
-type RichiAnim = 'idle' | 'run' | 'jump' | 'hug';
+type RichiAnim = 'run' | 'jump' | 'hug';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T>(xs: readonly T[]): T => xs[Math.floor(Math.random() * xs.length)];
@@ -144,10 +156,24 @@ export class Game {
   ry = GROUND;
   private rvy = 0;
   private rT = 0;
-  richiAnim: RichiAnim = 'idle';
+  richiAnim: RichiAnim = 'run';
   richiFrame = 0;
   hugging = false;
+  /** 0..1 while Richi lifts the Goomba overhead */
+  private hugT = 0;
+  private hugFromX = PLAYER_X;
+  /** seconds since the Goomba settled in his hands */
+  private tossT = 0;
   private heartT = 0;
+
+  // messages
+  /** big centred message (distance milestones) and its age in seconds */
+  banner: { text: string; t: number } | null = null;
+  private nextMilestone = 100;
+  private lowHints = 2;
+  /** set by the shell so the HUD can show the right wording and sound state */
+  touch = false;
+  muted = false;
 
   // things
   obstacles: Obstacle[] = [];
@@ -198,20 +224,26 @@ export class Game {
     this.berries = 0;
     this.newBest = false;
     this.lives = MAX_LIVES;
-    this.gy = GROUND;
+    // No teleporting: the Goomba drops from wherever it is (Richi's hands, after
+    // a catch) and bolts, and Richi falls behind from where he stands.
+    this.grounded = this.gy >= GROUND;
     this.gvy = 0;
-    this.grounded = true;
     this.airJumps = 1;
     this.invuln = 0;
     this.hurtT = 0;
-    this.rx = Math.min(this.rx, -30);
-    this.ry = GROUND;
     this.rvy = 0;
     this.hugging = false;
+    this.hugT = 0;
+    this.particles = [];
+    // whatever was left standing goes up in a puff
+    for (const o of this.obstacles) {
+      if (o.x < W) this.puff(o.x + OBS[o.kind].w / 2 + 6, o.y + OBS[o.kind].h / 2, 5);
+    }
     this.obstacles = [];
     this.pickups = [];
-    this.particles = [];
     this.nextSpawn = 170;
+    this.nextMilestone = 100;
+    this.banner = null;
     this.heartCooldown = 0;
     this.sound.start();
     this.sound.music(true);
@@ -239,6 +271,10 @@ export class Game {
     this.time += dt;
     this.modeT += dt;
     this.shake = Math.max(0, this.shake - dt * 14);
+    if (this.banner) {
+      this.banner.t += dt;
+      if (this.banner.t > 1.7) this.banner = null;
+    }
 
     switch (this.mode) {
       case 'title':
@@ -268,8 +304,18 @@ export class Game {
 
   private updatePlay(dt: number, input: Input): void {
     const m = this.dist / PX_PER_METER;
-    this.speed = SPEED_START + (SPEED_MAX - SPEED_START) * (1 - Math.exp(-m / 420));
+    this.speed =
+      SPEED_START +
+      (SPEED_MAX - SPEED_START) * (1 - Math.exp(-m / 380)) +
+      Math.min(SPEED_CREEP_MAX, Math.max(0, m - SPEED_CREEP_FROM) * SPEED_CREEP);
     this.dist += this.speed * dt;
+    this.gx += (PLAYER_X - this.gx) * Math.min(1, dt * 8);
+    this.sound.tempo((this.speed - SPEED_START) / (SPEED_MAX + SPEED_CREEP_MAX - SPEED_START));
+    if (m >= this.nextMilestone) {
+      this.banner = { text: `${this.nextMilestone} M`, t: 0 };
+      this.nextMilestone += this.nextMilestone >= 500 ? 250 : 100;
+      this.sound.milestone();
+    }
 
     // --- jump -------------------------------------------------------------
     this.buffer = input.jumpPressed ? JUMP_BUFFER : this.buffer - dt;
@@ -376,6 +422,11 @@ export class Game {
       this.setMode('caught');
       this.sound.music(false);
       this.finishScore();
+    } else if (this.grounded) {
+      // ouch-hop: knocked off its feet for a moment
+      this.gvy = -210;
+      this.grounded = false;
+      this.coyote = 0;
     }
   }
 
@@ -432,24 +483,52 @@ export class Game {
       // obstacles drift off so the hug has a clear stage
       for (const o of this.obstacles) o.x -= (this.speed + 60) * dt;
       for (const p of this.pickups) p.x -= (this.speed + 60) * dt;
-      if (this.grounded && Math.abs(this.rx - RICHI_X[0]) < 2.5 && this.ry >= GROUND) {
+      const arrived = this.grounded && Math.abs(this.rx - RICHI_X[0]) < 2.5 && this.ry >= GROUND;
+      if (arrived || this.modeT > 3) {
         this.hugging = true;
+        this.hugT = 0;
+        this.tossT = 0;
+        this.hugFromX = this.gx;
+        this.gy = GROUND;
+        this.grounded = true;
+        this.ry = GROUND;
+        this.rvy = 0;
         this.pickups = [];
         this.sound.caught();
-        for (let i = 0; i < 10; i++) this.heartBurst(this.gx, this.gy - 30);
+        // a burst of hearts above them, spread out so they do not pile up on his face
+        for (let i = 0; i < 10; i++) this.heartBurst(this.gx + rand(-18, 18), GROUND - 58 - rand(0, 26));
       }
     } else {
+      this.hugT = Math.min(1, this.hugT + dt / 0.3);
       this.hugBounce(dt, 0.14);
-      if (this.modeT > 2.3) this.setMode('over');
+      if (this.modeT > 2.7) {
+        this.setMode('over');
+        if (this.newBest) {
+          this.sound.newBest();
+          for (let i = 0; i < 14; i++) {
+            this.particles.push({
+              kind: 'sparkle', x: W - 94 + rand(-70, 70), y: 30 + rand(0, 60),
+              vx: rand(-20, 20), vy: rand(-50, -10), life: 0, max: rand(0.5, 1), variant: 0,
+            });
+          }
+        }
+      }
     }
   }
 
   /** Richi bounces with the Goomba held overhead, hearts drifting up */
   private hugBounce(dt: number, heartEvery: number): void {
-    const hop = Math.abs(Math.sin(this.time * 6)) * 3;
-    this.ry = GROUND - hop;
-    this.gx = this.rx + RICHI_HEAD.x;
-    this.gy = this.ry + RICHI_HEAD.y;
+    // scooped up from the ground into his raised hands, then tossed and caught
+    this.ry = GROUND;
+    let up = 0;
+    if (this.hugT >= 1) {
+      this.tossT += dt;
+      const u = this.tossPhase();
+      if (u < TOSS_AIR) up = 4 * TOSS_HEIGHT * (u / TOSS_AIR) * (1 - u / TOSS_AIR);
+    }
+    const k = 1 - (1 - this.hugT) ** 3;
+    this.gx = this.hugFromX + (this.rx + RICHI_HEAD.x - this.hugFromX) * k;
+    this.gy = GROUND + (this.ry + RICHI_HEAD.y - GROUND) * k - up;
     this.heartT -= dt;
     if (this.heartT <= 0) {
       this.heartT = heartEvery;
@@ -457,15 +536,24 @@ export class Game {
     }
   }
 
+  /** 0..1 through the current toss: in the air until TOSS_AIR, then resting in his hands */
+  private tossPhase(): number {
+    return (this.tossT % TOSS_PERIOD) / TOSS_PERIOD;
+  }
+
   // ---- spawning ---------------------------------------------------------
 
   private spawnPattern(m: number): void {
     const x = W + 24;
+    // each pattern unlocks at a distance, so a run keeps showing something new
     const options: [string, number][] = [
       ['ground', 5],
       ['stingbyLow', m > 60 ? 2.5 : 0],
       ['pair', m > 140 ? 1.6 : 0],
       ['stingbyHigh', m > 180 ? 1.8 : 0],
+      ['duckHop', m > 450 ? 1.4 : 0],
+      ['triple', m > 700 ? 1.1 : 0],
+      ['twoBees', m > 950 ? 1.2 : 0],
     ];
     let roll = Math.random() * options.reduce((a, [, w]) => a + w, 0);
     let choice = 'ground';
@@ -478,7 +566,16 @@ export class Game {
     }
 
     let extraGap = 0;
+    const small = () => pick<ObKind>(['stump', 'rock']);
     const groundKind = () => pick<ObKind>(m < 40 ? ['stump', 'rock'] : ['stump', 'rock', 'cactus']);
+    const highBee = (at: number) => {
+      const o = this.addObstacle('stingby', at, GROUND - 58);
+      if (this.lowHints > 0) {
+        o.hint = 'STAY LOW!';
+        this.lowHints--;
+      }
+      return o;
+    };
     switch (choice) {
       case 'ground': {
         const o = this.addObstacle(groundKind(), x);
@@ -486,10 +583,18 @@ export class Game {
         break;
       }
       case 'pair': {
-        const a = this.addObstacle(pick<ObKind>(['stump', 'rock']), x);
-        this.addObstacle(pick<ObKind>(['stump', 'rock', 'cactus']), x + OBS[a.kind].w + 6);
+        const a = this.addObstacle(small(), x);
+        this.addObstacle(groundKind(), x + OBS[a.kind].w + 6);
         this.berryArc(x + 26, 3, 8);
         extraGap = 40;
+        break;
+      }
+      case 'triple': {
+        // a long jump: three in a row, only once the run is fast enough to clear them
+        let at = x;
+        for (let i = 0; i < 3; i++) at += OBS[this.addObstacle(small(), at).kind].w + 4;
+        this.berryArc((x + at) / 2, 5, 10);
+        extraGap = 70;
         break;
       }
       case 'stingbyLow': {
@@ -498,13 +603,32 @@ export class Game {
       }
       case 'stingbyHigh': {
         // hovers at jump height: stay on the ground, snack on the berries below
-        const o = this.addObstacle('stingby', x, GROUND - 58);
+        const o = highBee(x);
         for (let i = 0; i < 3; i++) this.pickups.push({ kind: 'berry', x: o.x + i * 16, y: GROUND - 9, t: i * 0.2 });
+        break;
+      }
+      case 'duckHop': {
+        // stay low under the Stingby, then hop what was hiding behind it
+        highBee(x);
+        const o = this.addObstacle(groundKind(), x + 34);
+        this.berryArc(o.x + OBS[o.kind].w / 2, 3);
+        extraGap = 50;
+        break;
+      }
+      case 'twoBees': {
+        // one to jump and one to stay under, in either order, about half a second apart
+        const apart = (this.speed + OBS.stingby.extraSpeed) * 0.55;
+        const lowFirst = Math.random() < 0.5;
+        this.addObstacle('stingby', lowFirst ? x : x + apart, GROUND - 27);
+        highBee(lowFirst ? x + apart : x);
+        extraGap = apart;
         break;
       }
     }
 
-    const gapTime = 1.5 - Math.min(m / 500, 1) * 0.7 + Math.random() * 0.8;
+    // breathing room shrinks over the first 1400 m, and gets more regular
+    const late = Math.min(1, m / 1400);
+    const gapTime = 1.45 - 0.7 * late + Math.random() * (0.8 - 0.35 * late);
     const gap = this.speed * gapTime + extraGap;
     this.nextSpawn = this.dist + gap;
 
@@ -518,7 +642,7 @@ export class Game {
   private addObstacle(kind: ObKind, x: number, y?: number): Obstacle {
     const d = OBS[kind];
     const baseY = y ?? GROUND + 1 - d.h;
-    const o: Obstacle = { kind, x, y: baseY, baseY, t: 0, phase: Math.random() * 6 };
+    const o: Obstacle = { kind, x, y: baseY, baseY, t: 0, phase: Math.random() * 6, rise: 0 };
     this.obstacles.push(o);
     return o;
   }
@@ -535,9 +659,14 @@ export class Game {
     for (const o of this.obstacles) {
       o.t += dt;
       o.x -= (this.speed + OBS[o.kind].extraSpeed) * dt;
-      if (o.kind === 'stingby') o.y = o.baseY + Math.sin(o.t * 5 + o.phase) * 3;
+      if (o.kind === 'stingby') {
+        // missed the Goomba: buzz off up and away instead of ploughing into Richi
+        if (o.x + OBS.stingby.w < this.gx - 10) o.rise += 300 * dt;
+        o.baseY -= o.rise * dt;
+        o.y = o.baseY + Math.sin(o.t * 5 + o.phase) * 3;
+      }
     }
-    this.obstacles = this.obstacles.filter((o) => o.x > -40);
+    this.obstacles = this.obstacles.filter((o) => o.x > -40 && o.y > -40);
     for (const p of this.pickups) {
       p.t += dt;
       p.x -= this.speed * dt;
@@ -574,7 +703,8 @@ export class Game {
   // ---- richi ------------------------------------------------------------
 
   private updateRichi(dt: number): void {
-    this.rT += dt;
+    const pace = Math.max(0, Math.min(1, (this.speed - SPEED_START) / (SPEED_MAX + SPEED_CREEP_MAX - SPEED_START)));
+    this.rT += dt * (this.mode === 'title' ? 0.7 : 1.4 + 0.6 * pace);
     if (this.hugging) return;
 
     let target: number;
@@ -587,13 +717,14 @@ export class Game {
     else target = RICHI_X[this.lives] + Math.sin(this.time * 1.7) * 3;
     this.rx += (target - this.rx) * Math.min(1, dt * follow);
 
-    // hop over anything on the ground
+    // hop over anything on the ground, taking off so the top of the hop is over it
     if (this.ry >= GROUND && this.mode === 'play') {
+      const air = (2 * -RICHI_HOP_V) / GRAVITY;
       for (const o of this.obstacles) {
         if (o.kind === 'stingby') continue;
-        const lead = 30 + this.speed * 0.12;
-        if (o.x < this.rx + lead + 10 && o.x + OBS[o.kind].w > this.rx + 4) {
-          this.rvy = -400;
+        const ahead = o.x + OBS[o.kind].w / 2 - this.rx;
+        if (ahead > -6 && ahead < this.speed * air * 0.5 + 8) {
+          this.rvy = RICHI_HOP_V;
           break;
         }
       }
@@ -644,14 +775,25 @@ export class Game {
   // ---- animation ----------------------------------------------------------
 
   private animate(dt: number): void {
-    // goomba
+    const pace = Math.max(0, Math.min(1, (this.speed - SPEED_START) / (SPEED_MAX + SPEED_CREEP_MAX - SPEED_START)));
+
+    // goomba: 8-frame waddle, 1.6 strides a second at the start up to 2.4 flat out
     if (this.mode === 'title') {
-      this.goombaAnim = 'idle';
-      const k = Math.floor(this.time * 3) % 8;
-      this.goombaFrame = k === 7 ? 2 : k % 2;
+      this.goombaAnim = 'run';
+      this.runT += dt * 0.75;
+      this.goombaFrame = Math.floor(this.runT * 8);
     } else if (this.hugging || this.mode === 'over') {
+      // frames: 0 held, 1 squashed on the catch, 2 going up, 3 coming down, 4 blink
       this.goombaAnim = 'love';
-      this.goombaFrame = Math.floor(this.time * 5) % 2;
+      const u = this.tossPhase();
+      const settled = this.hugT >= 1;
+      if (!settled) this.goombaFrame = 0;
+      else if (u < TOSS_AIR * 0.5) this.goombaFrame = 2;
+      else if (u < TOSS_AIR) this.goombaFrame = 3;
+      else if (u < TOSS_AIR + 0.1) this.goombaFrame = 1;
+      // an unhurried blink, once every third toss
+      else if (Math.floor(this.tossT / TOSS_PERIOD) % 3 === 2 && u > 0.84 && u < 0.94) this.goombaFrame = 4;
+      else this.goombaFrame = 0;
     } else if (this.mode === 'caught' || this.hurtT > 0) {
       this.goombaAnim = 'hurt';
       this.goombaFrame = 0;
@@ -663,23 +805,21 @@ export class Game {
       this.goombaFrame = 0;
     } else {
       this.goombaAnim = 'run';
-      this.runT += dt * (0.7 + this.speed / 180);
-      this.goombaFrame = Math.floor(this.runT * 15);
+      this.runT += dt * (1.6 + 0.8 * pace);
+      this.goombaFrame = Math.floor(this.runT * 8);
     }
 
     // richi
     if (this.hugging || this.mode === 'over') {
       this.richiAnim = 'hug';
-      this.richiFrame = Math.floor(this.time * 5) % 2;
-    } else if (this.mode === 'title') {
-      this.richiAnim = 'idle';
-      this.richiFrame = Math.floor(this.time * 2.2) % 5 === 4 ? 1 : 0;
+      // he stretches up for the throw, then stands and waits for the catch
+      this.richiFrame = this.hugT >= 1 && this.tossPhase() < 0.14 ? 1 : 0;
     } else if (this.ry < GROUND) {
       this.richiAnim = 'jump';
       this.richiFrame = 0;
     } else {
       this.richiAnim = 'run';
-      this.richiFrame = Math.floor(this.rT * 13);
+      this.richiFrame = Math.floor(this.rT * 8);
     }
   }
 }

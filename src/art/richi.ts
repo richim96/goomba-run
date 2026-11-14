@@ -4,7 +4,8 @@ import { RICHI_COLORS, RICHI_ROWS } from './richiSprite.ts';
 
 // Richi, the pursuer. Head and jacket are his own avatar, imported pixel for
 // pixel (richiSprite.ts). From that source this file:
-//  - trims the hair a little (whole rows/columns of hair only, the face is untouched)
+//  - trims the hair a little (whole rows/columns of hair only)
+//  - simplifies the face (see FACE below)
 //  - removes the avatar's pumping arms and draws "grabby hands" reaching forward
 //  - animates the legs, since the avatar is a single pose
 
@@ -16,7 +17,7 @@ const OY = 4;
 const WAIST = 40;
 const HIP_X = 28;
 /** hair rows / columns dropped to make the head slightly smaller */
-const DROP_ROWS = [11, 8, 5];
+const DROP_ROWS = [8, 5, 2];
 const DROP_COLS_BACK = [22, 20]; // rows 0..16
 const DROP_COL_FRONT = 43; // rows 0..10
 
@@ -28,9 +29,36 @@ export const RICHI_HEAD = { x: 3, y: -(SRC_H - 5) };
 
 const CH = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const col = (ch: string) => RICHI_COLORS[CH.indexOf(ch)];
-const LEGEND: Record<string, number> = Object.fromEntries(
-  [...CH].slice(0, RICHI_COLORS.length).map((c) => [c, col(c)]),
-);
+const LEGEND: Record<string, number> = {
+  ...Object.fromEntries([...CH].slice(0, RICHI_COLORS.length).map((c) => [c, col(c)])),
+  M: 0x8a3f30, // mouth
+  G: P.gold, // earring
+};
+
+// The avatar's face is realistic: dithered stubble, a small lidded eye, a long
+// nose. At game size that reads as creepy, so the features are redrawn simpler
+// ("chibi"): one big 3x3 eye with a sparkle, flat skin, a clean beard band, a
+// button nose and a small smile. Hair, ear position and outline stay the avatar's.
+// These are rows 10..24 of the source from column 24; ' ' keeps the avatar's pixel.
+const CHIBI_FACE = true;
+const FACE_AT = { row: 10, col: 24 };
+const FACE = [
+  '         11 11    ',
+  '        n     pn  ',
+  '       n   ppp  n ',
+  ' pp888kppp3333ppn ',
+  'ppdk8hppppppppppn ',
+  'pdpkhhppppt00pppn ',
+  'pppkhhpppp000ppp  ',
+  'pppphhpppp000ppp  ',
+  ' pGkhhkpppppppppp ',
+  '  Ghhhhkppppppppp.',
+  '    hhhhkppMpppn..',
+  '   hhhhhhhkpMMpp  ',
+  '    hhhhhhhhhkpn  ',
+  '     hhhhhhhhhh.  ',
+  '      99999999.   ',
+];
 
 // colours lifted from the avatar itself
 const PANTS = [col('0'), col('1'), col('2')];
@@ -39,7 +67,7 @@ const SHOE_FAR = [col('c'), col('m'), col('q')];
 const SOLE = col('c');
 
 type Pt = readonly [number, number];
-type Arms = 'reach' | 'up' | 'down';
+type Arms = 'reach' | 'up';
 
 interface Pose {
   /** leg cycle angle; undefined = standing */
@@ -76,6 +104,14 @@ function upperBody(): Pix {
   for (let y = 25; y <= 32; y++) erase(y, 39, SRC_W);
   erase(33, 35, SRC_W);
   for (let y = 34; y <= 38; y++) erase(y, 34, SRC_W);
+
+  if (CHIBI_FACE) {
+    FACE.forEach((line, j) => {
+      [...line].forEach((ch, i) => {
+        if (ch !== ' ') rows[FACE_AT.row + j][FACE_AT.col + i] = ch;
+      });
+    });
+  }
 
   // trim hair columns: back of the head moves in, the quiff moves back
   for (let y = 0; y <= 16; y++) {
@@ -179,12 +215,9 @@ function frame(p: Pose): Pix {
   if (p.arms === 'reach') {
     nearHand = [OX + 43, dy + 32 + w];
     farHand = [OX + 46, dy + 25 - w];
-  } else if (p.arms === 'up') {
+  } else {
     nearHand = [OX + 16, dy + 7];
     farHand = [OX + 40, dy + 7];
-  } else {
-    nearHand = [OX + 24, dy + 39];
-    farHand = [OX + 31, dy + 38];
   }
 
   // feet: the foot swinging forward is the one in the air
@@ -227,7 +260,6 @@ function frame(p: Pose): Pix {
 export interface RichiArt {
   run: Pix[];
   jump: Pix;
-  idle: Pix[];
   hug: Pix[];
 }
 
@@ -249,7 +281,6 @@ export function buildRichi(): RichiArt {
   return {
     run,
     jump: frame({ tuck: true, arms: 'reach', wobble: -1 }),
-    idle: [frame({ arms: 'down' }), frame({ arms: 'down', lift: 1 })],
     hug: [frame({ arms: 'up' }), frame({ arms: 'up', lift: 2 })],
   };
 }

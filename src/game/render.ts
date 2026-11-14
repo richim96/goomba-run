@@ -15,7 +15,17 @@ const PINK = '#ff7a98';
 const CYCLE: (keyof typeof THEMES)[] = ['day', 'day', 'sunset', 'night', 'night', 'sunset'];
 const SEGMENT = 16; // seconds per step
 
+/** tap targets of the two HUD buttons, in game pixels (generous on purpose) */
+export const BTN_PAUSE = { x: 142, y: 0, w: 17, h: 18 };
+export const BTN_SOUND = { x: 160, y: 0, w: 18, h: 18 };
+
+// 4x4 ordered-dither thresholds, for the sky gradient
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+/** calm blinking for prompts: visible for most of each period */
+const blinkOn = (t: number, period = 1.2, share = 0.68) => t % period < period * share;
 
 function mix(a: number, b: number, t: number): number {
   const r = lerp((a >> 16) & 255, (b >> 16) & 255, t);
@@ -83,7 +93,7 @@ export class Renderer {
     // sun and moon ride on how "day" or "night" it is
     const dayness = lerp(nameA === 'day' ? 1 : 0, nameB === 'day' ? 1 : 0, t);
     const nightness = lerp(nameA === 'night' ? 1 : 0, nameB === 'night' ? 1 : 0, t);
-    ctx.drawImage(this.s.scenery.sun, 236, Math.round(lerp(120, 14, dayness)));
+    ctx.drawImage(this.s.scenery.sun, 196, Math.round(lerp(120, 18, dayness)));
     if (nightness > 0.01) ctx.drawImage(this.s.scenery.moon, 60, Math.round(lerp(130, 16, nightness)));
 
     for (const c of g.clouds) {
@@ -119,11 +129,19 @@ export class Renderer {
     this.shadow(g.gx, 9, g.hugging ? 0 : Math.max(0.25, 1 - (GROUND - g.gy) / 70));
     this.shadow(g.rx, 17, 1);
 
+    // richi
+    const rFrames = this.s.richi[g.richiAnim];
+    const rImg: Img = Array.isArray(rFrames) ? rFrames[g.richiFrame % rFrames.length] : rFrames;
+    ctx.drawImage(rImg, Math.round(g.rx) - RICHI_ANCHOR.x, Math.round(g.ry) - RICHI_ANCHOR.y);
+
     for (const o of g.obstacles) {
       if (o.kind === 'stingby') {
         const f = Math.floor(o.t * 14) % 2;
         this.shadow(o.x + 15, 7, 0.5);
         ctx.drawImage(this.s.props.stingby[f], Math.round(o.x), Math.round(o.y));
+        if (o.hint && o.rise === 0) {
+          drawText(ctx, o.hint, o.x + 15, o.y + 31, { align: 'center', color: CREAM, outline: INK });
+        }
       } else {
         ctx.drawImage(this.s.props[o.kind], Math.round(o.x), Math.round(o.y));
       }
@@ -138,19 +156,14 @@ export class Renderer {
       }
     }
 
-    // richi
-    const rFrames = this.s.richi[g.richiAnim];
-    const rImg: Img = Array.isArray(rFrames) ? rFrames[g.richiFrame % rFrames.length] : rFrames;
-    ctx.drawImage(rImg, Math.round(g.rx) - RICHI_ANCHOR.x, Math.round(g.ry) - RICHI_ANCHOR.y);
-
-    // goomba (blinks while invulnerable)
-    const blink = g.invuln > 0 && g.mode === 'play' && Math.floor(g.time * 16) % 2 === 0;
-    if (!blink) {
-      const gFrames = this.s.goomba[g.goombaAnim];
-      let gImg: Img = Array.isArray(gFrames) ? gFrames[g.goombaFrame % gFrames.length] : gFrames;
-      if (g.hitstop > 0) gImg = this.s.goombaFlash;
-      ctx.drawImage(gImg, Math.round(g.gx) - GOOMBA_ANCHOR.x, Math.round(g.gy) - GOOMBA_ANCHOR.y);
-    }
+    // goomba: after a hit it fades in and out (gently, about 3 times a second) instead of vanishing
+    const faded = g.invuln > 0 && g.mode === 'play' && Math.floor(g.time * 6.5) % 2 === 0;
+    const gFrames = this.s.goomba[g.goombaAnim];
+    let gImg: Img = Array.isArray(gFrames) ? gFrames[g.goombaFrame % gFrames.length] : gFrames;
+    if (g.hitstop > 0) gImg = this.s.goombaFlash;
+    ctx.globalAlpha = faded ? 0.4 : 1;
+    ctx.drawImage(gImg, Math.round(g.gx) - GOOMBA_ANCHOR.x, Math.round(g.gy) - GOOMBA_ANCHOR.y);
+    ctx.globalAlpha = 1;
 
     this.particles(g);
     ctx.restore();
@@ -159,7 +172,7 @@ export class Renderer {
     if (g.mode === 'title') this.title(g);
     if (g.mode === 'caught' && g.hugging) this.caughtBanner(g);
     if (g.mode === 'over') this.gameOver(g);
-    if (g.paused) this.pauseOverlay();
+    if (g.paused) this.pauseOverlay(g);
   }
 
   // ---- pieces ---------------------------------------------------------------
@@ -180,18 +193,23 @@ export class Renderer {
       const y1 = Math.round(top + (i + 1) * band);
       c.fillStyle = cols[i];
       c.fillRect(0, y0, W, y1 - y0);
-      // two dithered rows blend each band into the next
-      if (i < n - 1) {
-        c.fillStyle = cols[i + 1];
-        for (let x = 0; x < W; x += 2) {
-          c.fillRect(x, y1 - 2, 1, 1);
-          c.fillRect(x + 1, y1 - 1, 1, 1);
-          if (x % 4 === 0) c.fillRect(x + 2, y1 - 3, 1, 1);
-        }
-      }
     }
     c.fillStyle = cols[n - 1];
     c.fillRect(0, bottom, W, H - bottom);
+    // ordered dithering across each band edge: a soft pixel-art gradient
+    const half = 5;
+    for (let i = 0; i < n - 1; i++) {
+      const edge = Math.round(top + (i + 1) * band);
+      for (let y = edge - half; y < edge + half; y++) {
+        const amount = (y - (edge - half) + 0.5) / (half * 2); // 0 = band i, 1 = band i + 1
+        const above = y < edge;
+        c.fillStyle = cols[above ? i + 1 : i];
+        for (let x = 0; x < W; x++) {
+          const next = (BAYER[(x & 3) + ((y & 3) << 2)] + 0.5) / 16 < amount;
+          if (next === above) c.fillRect(x, y, 1, 1);
+        }
+      }
+    }
   }
 
   private tile(img: Img, scroll: number, y: number, alpha: number): void {
@@ -248,10 +266,22 @@ export class Renderer {
 
   private hud(g: Game): void {
     const ctx = this.ctx;
+    // '@' / '%' are the speaker glyphs, '#' the pause bars
+    drawText(ctx, g.muted ? '%' : '@', BTN_SOUND.x + 5, 6, { color: g.muted ? '#b9a9a0' : CREAM, outline: INK });
+    if (g.mode === 'play') drawText(ctx, '#', BTN_PAUSE.x + 6, 6, { color: CREAM, outline: INK });
+    if (g.banner) {
+      const u = g.banner.t;
+      const pop = Math.min(1, u * 8);
+      ctx.globalAlpha = u > 1.3 ? Math.max(0, (1.7 - u) / 0.4) : 1;
+      drawText(ctx, g.banner.text, W / 2, 44 - Math.round((1 - pop) * 6), {
+        align: 'center', scale: 2, color: GOLD, outline: INK,
+      });
+      ctx.globalAlpha = 1;
+    }
     if (g.mode === 'title') return;
     for (let i = 0; i < 3; i++) {
       const img = i < g.lives ? this.s.props.heartHud : this.s.props.heartEmpty;
-      const pulse = i === g.lives - 1 && g.lives === 1 && g.mode === 'play' ? Math.round(Math.sin(g.time * 10)) : 0;
+      const pulse = i === g.lives - 1 && g.lives === 1 && g.mode === 'play' ? Math.round(Math.sin(g.time * 6)) : 0;
       ctx.drawImage(img, 5 + i * 12, 5 + pulse);
     }
     if (g.mode === 'over') return;
@@ -273,11 +303,16 @@ export class Renderer {
       x += (6 - narrow) * 4;
     }
     drawText(ctx, "DON'T LET RICHI CATCH YOU!", W / 2, 72, { align: 'center', color: CREAM, outline: INK });
-    if (Math.floor(g.time * 2.2) % 2 === 0) {
-      drawText(ctx, 'PRESS SPACE OR TAP', W / 2, 92, { align: 'center', scale: 1, color: GOLD, outline: INK });
+    if (blinkOn(g.time)) {
+      drawText(ctx, g.touch ? 'TAP TO START' : 'PRESS SPACE OR TAP', W / 2, 92, {
+        align: 'center', color: GOLD, outline: INK,
+      });
     }
     if (DEDICATION) drawText(ctx, `${DEDICATION} <`, W / 2, 108, { align: 'center', color: PINK, outline: INK });
-    drawText(ctx, 'SPACE: JUMP x2   P: PAUSE   M: SOUND', W / 2, H - 12, { align: 'center', color: CREAM, outline: INK });
+    const help = g.touch
+      ? 'TAP: JUMP   TAP AGAIN IN THE AIR: DOUBLE JUMP'
+      : 'SPACE: JUMP x2  P: PAUSE  M: SOUND  F: FULLSCREEN';
+    drawText(ctx, help, W / 2, H - 12, { align: 'center', color: CREAM, outline: INK });
     if (g.best > 0) drawText(ctx, `BEST ${g.best}`, W - 6, 6, { align: 'right', color: GOLD, outline: INK });
     // a little hint arrow over the hero
     const bob = Math.round(Math.sin(g.time * 5) * 2);
@@ -303,23 +338,27 @@ export class Renderer {
     drawText(ctx, String(g.score), x + w / 2, y + 23, { align: 'center', scale: 3, color: CREAM, outline: INK });
     drawText(ctx, `${g.meters} M   ${g.berries} BERRIES`, x + w / 2, y + 49, { align: 'center', color: CREAM, outline: INK });
     if (g.newBest) {
-      if (Math.floor(g.time * 4) % 2 === 0) {
+      if (blinkOn(g.modeT, 0.9, 0.7)) {
         drawText(ctx, 'NEW BEST!', x + w / 2, y + 61, { align: 'center', color: GOLD, outline: INK });
       }
     } else {
       drawText(ctx, `BEST ${g.best}`, x + w / 2, y + 61, { align: 'center', color: GOLD, outline: INK });
     }
-    if (g.modeT > 0.45 && Math.floor(g.time * 2.2) % 2 === 0) {
-      drawText(ctx, 'SPACE OR TAP TO RUN AGAIN', x + w / 2, y + h + 6, { align: 'center', color: CREAM, outline: INK });
+    if (g.modeT > 0.45 && blinkOn(g.modeT - 0.45)) {
+      drawText(ctx, g.touch ? 'TAP TO RUN AGAIN' : 'SPACE OR TAP TO RUN AGAIN', x + w / 2, y + h + 6, {
+        align: 'center', color: CREAM, outline: INK,
+      });
     }
   }
 
-  private pauseOverlay(): void {
+  private pauseOverlay(g: Game): void {
     const ctx = this.ctx;
     ctx.fillStyle = 'rgba(27, 20, 48, 0.55)';
     ctx.fillRect(0, 0, W, H);
     drawText(ctx, 'PAUSED', W / 2, 66, { align: 'center', scale: 3, color: CREAM, outline: INK });
-    drawText(ctx, 'P OR SPACE TO RESUME', W / 2, 98, { align: 'center', color: GOLD, outline: INK });
+    drawText(ctx, g.touch ? 'TAP TO RESUME' : 'P OR SPACE TO RESUME', W / 2, 98, {
+      align: 'center', color: GOLD, outline: INK,
+    });
   }
 
   private panel(x: number, y: number, w: number, h: number): void {

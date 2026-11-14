@@ -5,26 +5,37 @@ export class Input {
   jumpHeld = false;
   pausePressed = false;
   mutePressed = false;
-  /** pointer taps in game coordinates (for the on-screen buttons) */
+  /** pointer presses in game coordinates; the shell decides if one hit a HUD button */
   taps: { x: number; y: number }[] = [];
-  onFirstGesture: (() => void) | null = null;
+  /** true once a finger (not a mouse) has been used */
+  touch = false;
+  /** called inside every user gesture (browsers only allow audio to start there) */
+  onGesture: (() => void) | null = null;
+  /** called inside the key handler, as fullscreen also needs a live gesture */
+  onFullscreen: (() => void) | null = null;
 
   private keysDown = new Set<string>();
   private pointerDown = false;
 
   constructor(canvas: HTMLCanvasElement) {
     const jumpKeys = new Set(['Space', 'ArrowUp', 'KeyW', 'Enter']);
+    const gesture = () => this.onGesture?.();
+
     window.addEventListener('keydown', (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      this.gesture();
+      gesture();
       if (jumpKeys.has(e.code)) {
         e.preventDefault();
         if (!e.repeat) this.jumpPressed = true;
         this.keysDown.add(e.code);
+      } else if (e.repeat) {
+        return;
       } else if (e.code === 'Escape' || e.code === 'KeyP') {
-        if (!e.repeat) this.pausePressed = true;
+        this.pausePressed = true;
       } else if (e.code === 'KeyM') {
-        if (!e.repeat) this.mutePressed = true;
+        this.mutePressed = true;
+      } else if (e.code === 'KeyF') {
+        this.onFullscreen?.();
       }
       this.sync();
     });
@@ -32,13 +43,18 @@ export class Input {
       this.keysDown.delete(e.code);
       this.sync();
     });
-    canvas.addEventListener('pointerdown', (e) => {
+
+    // anywhere on the page counts, not just the canvas: the letterbox is a fine place to tap
+    window.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
-      this.gesture();
+      gesture();
+      if (e.pointerType === 'touch') this.touch = true;
       const r = canvas.getBoundingClientRect();
-      const x = ((e.clientX - r.left) / r.width) * canvas.width;
-      const y = ((e.clientY - r.top) / r.height) * canvas.height;
-      this.taps.push({ x, y });
+      this.taps.push({
+        x: ((e.clientX - r.left) / r.width) * canvas.width,
+        y: ((e.clientY - r.top) / r.height) * canvas.height,
+      });
       this.pointerDown = true;
       this.sync();
     });
@@ -48,14 +64,17 @@ export class Input {
     };
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
+    // iOS only treats these as gestures that may start audio
+    window.addEventListener('touchend', gesture);
+    window.addEventListener('click', gesture);
     window.addEventListener('blur', () => {
       this.keysDown.clear();
       up();
     });
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    window.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
-  /** a tap that the UI did not consume counts as a jump */
+  /** a tap that the HUD did not consume counts as a jump */
   tapJump(): void {
     this.jumpPressed = true;
   }
@@ -64,17 +83,9 @@ export class Input {
     this.jumpPressed = false;
     this.pausePressed = false;
     this.mutePressed = false;
-    this.taps.length = 0;
   }
 
   private sync(): void {
     this.jumpHeld = this.keysDown.size > 0 || this.pointerDown;
-  }
-
-  private gesture(): void {
-    if (this.onFirstGesture) {
-      this.onFirstGesture();
-      this.onFirstGesture = null;
-    }
   }
 }
