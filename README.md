@@ -15,23 +15,16 @@ Then double-click `dist/index.html`. That one file is the whole game: copy or Ai
 
 For development: `npm run dev` and open the printed URL (`/art.html` shows every sprite).
 
-## Mac app
+## Install it as an app (Mac, iPhone, iPad)
 
-```bash
-npm run app:mac
-```
-
-Builds `release/Goomba Run.app` and `release/Goomba Run for Mac.zip` (about 90 kB), a small native window around the same game. It needs only the Xcode Command Line Tools and runs on Apple Silicon (macOS 12+) and Intel (macOS 14+).
-
-The app is not signed with an Apple Developer ID. A copy that was downloaded (from a drive, mail or AirDrop) is blocked the first time: open it once, then go to System Settings → Privacy & Security and choose "Open Anyway". A copy built on the same Mac opens directly.
-
-## iPhone and iPad
-
-Apple does not let an app be installed from a file on these devices, so the game is also published as a web page:
+The game is also published as a web page:
 
 **https://richim96.github.io/goomba-run/**
 
-Open it in Safari, then Share → Add to Home Screen. It gets its own icon, runs full screen and keeps working without internet after the first visit. Every push to `main` republishes it (`.github/workflows/pages.yml`).
+- **Mac:** open it in Safari, then File → Add to Dock (macOS 14 or later).
+- **iPhone and iPad:** open it in Safari, then Share → Add to Home Screen.
+
+It gets its own icon, runs in its own window or full screen, and keeps working without internet after the first visit. Every push to `main` republishes it (`.github/workflows/pages.yml`), so an installed copy picks up the latest version the next time it is opened online.
 
 ## Controls
 

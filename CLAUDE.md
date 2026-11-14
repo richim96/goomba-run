@@ -10,7 +10,6 @@ Goomba Run — a browser endless runner. A Goomba flees from Richi; Stingbies an
 
 - Dev server: `npm run dev` (game at `/`, sprite contact sheet at `/art.html`)
 - Type-check + build: `npm run build` → `dist/index.html`
-- Mac app: `npm run app:mac` → `release/Goomba Run.app` + zip (Swift + WKWebView, see `native/mac/`). It cannot be launched from a sandboxed shell; ask the owner to open it, or to run `"release/Goomba Run.app/Contents/MacOS/GoombaRun" --selftest`.
 - Icons: `npm run icons` → `public/icons/` (runs as part of `build`)
 - Export sprites as PNG: `npm run art` → `art-export/` (1x, 6x, `palette.json`)
 - Fairness simulator: `npm run sim` (or `npm run sim -- <runs> <metres>`). A look-ahead bot plays the real `Game` class headlessly. It fails if any moment has no way out, and prints the jump timing windows per distance. **Run it after touching spawning, speed, physics or hitboxes**; keep the tightest window at 5 frames or more.
@@ -40,13 +39,14 @@ Art lives in `src/art/` and has no DOM dependency, so the game and `scripts/bake
 
 ## Shipping forms
 
-One build, three ways to run it, all from the same `dist/index.html`:
+One build, two ways to run it, both from the same `dist/index.html`:
 
 - **File:** `dist/index.html` double-clicked or emailed. Nothing else needed.
-- **Mac app:** `native/mac/main.swift` is a ~200-line Cocoa app that loads that file into a `WKWebView` under a made-up `https://goomba-run.invalid/` origin (stable `localStorage`, nothing fetched). `scripts/build-mac.sh` compiles it, writes the icon and ad-hoc signs it.
-- **Website (the iPhone/iPad route):** published to GitHub Pages at `https://richim96.github.io/goomba-run/` by `.github/workflows/pages.yml` on every push to `main`. `public/manifest.webmanifest` + `public/sw.js` (network first, cache fallback) let it be saved to a Home Screen and run offline; `main.ts` registers the service worker only in production builds served over HTTPS or localhost. The owner chose this knowingly: the address is public. iPhone and iPad have no file-based install, and a native app there would need Xcode plus Apple developer signing.
+- **Website (the install route for Mac, iPhone and iPad):** on a Mac, Safari's File → Add to Dock; on iPhone/iPad, Share → Add to Home Screen. Published to GitHub Pages at `https://richim96.github.io/goomba-run/` by `.github/workflows/pages.yml` on every push to `main`. `public/manifest.webmanifest` + `public/sw.js` (network first, cache fallback) let it be saved to a Home Screen and run offline; `main.ts` registers the service worker only in production builds served over HTTPS or localhost. The owner chose this knowingly: the address is public. iPhone and iPad have no file-based install, and a native app there would need Xcode plus Apple developer signing.
 
-`scripts/make-icons.ts` draws every icon from the Goomba sprite in pure node (web PNGs into `public/icons/`, and the macOS `.icns` with `--icns`).
+`scripts/make-icons.ts` draws every icon from the Goomba sprite in pure node (web PNGs into `public/icons/`).
+
+There is no native Mac app any more: the owner removed it (a Swift + WKWebView wrapper in `native/mac/`, built into `release/`) because it had to be rebuilt and redistributed for every change, while the website updates everyone on the next push. Do not add it back.
 
 ## Conventions
 
