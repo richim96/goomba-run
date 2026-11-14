@@ -158,7 +158,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
       JSON.stringify({
         title: document.title,
         mode: window.__goomba ? window.__goomba.game.mode : null,
+<<<<<<< HEAD
+        canvas: (function () {
+          // the bitmap is the 320x180 game at a whole number of real pixels per game pixel
+          var c = document.getElementById('game'); if (!c) return null;
+          var k = c.width / 320;
+          return k >= 1 && k % 1 === 0 && c.height === 180 * k ? '320x180' : c.width + 'x' + c.height;
+        })(),
+=======
         canvas: (function () { var c = document.getElementById('game'); return c ? c.width + 'x' + c.height : null; })(),
+>>>>>>> main
         storage: (function () {
           try { localStorage.setItem('goomba-run.selftest', 'ok'); return localStorage.getItem('goomba-run.selftest'); }
           catch (e) { return 'error: ' + e; }

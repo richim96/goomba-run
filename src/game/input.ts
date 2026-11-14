@@ -1,4 +1,5 @@
 // Keyboard + pointer input, exposed as per-frame edges.
+import { H, W } from './game.ts';
 
 export class Input {
   jumpPressed = false;
@@ -51,8 +52,9 @@ export class Input {
       if (e.pointerType === 'touch') this.touch = true;
       const r = canvas.getBoundingClientRect();
       this.taps.push({
-        x: ((e.clientX - r.left) / r.width) * canvas.width,
-        y: ((e.clientY - r.top) / r.height) * canvas.height,
+        // game pixels, whatever the size of the canvas bitmap
+        x: ((e.clientX - r.left) / r.width) * W,
+        y: ((e.clientY - r.top) / r.height) * H,
       });
       this.pointerDown = true;
       this.sync();

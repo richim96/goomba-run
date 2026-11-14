@@ -5,21 +5,6 @@ import { Sound } from './game/audio.ts';
 import { buildSprites } from './game/gfx.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-canvas.width = W;
-canvas.height = H;
-
-// Biggest size that fits with every game pixel a whole number of screen pixels,
-// so the art stays crisp on any display (2.5x on a retina screen is 5 real pixels).
-function fit(): void {
-  const dpr = window.devicePixelRatio || 1;
-  const k = Math.min(window.innerWidth / W, window.innerHeight / H);
-  const device = Math.floor(k * dpr);
-  const scale = device >= 2 ? device / dpr : Math.max(0.5, k);
-  canvas.style.width = `${W * scale}px`;
-  canvas.style.height = `${H * scale}px`;
-}
-window.addEventListener('resize', fit);
-fit();
 
 const sound = new Sound();
 try {
@@ -32,6 +17,38 @@ const game = new Game(sound);
 const sprites = buildSprites();
 const renderer = new Renderer(canvas, sprites);
 game.muted = sound.muted;
+
+/** how far the last picture was from the previous simulation step (0) to the current one (1) */
+let alpha = 1;
+
+/** the canvas bitmap never gets wider than this many real pixels per game pixel (10 = 3200 x 1800) */
+const MAX_BITMAP_SCALE = 10;
+
+// The bitmap is drawn at the screen's own resolution, so things can move by one
+// real pixel instead of one game pixel. On very large screens it is a whole
+// fraction of that (the browser then enlarges it by a whole number), which keeps
+// the pixels square and the bitmap a size any graphics chip can fill 60 times a second.
+function bitmapScale(device: number): number {
+  if (device <= MAX_BITMAP_SCALE) return Math.max(1, device);
+  for (let k = MAX_BITMAP_SCALE; k >= 4; k--) if (device % k === 0) return k;
+  return device;
+}
+
+// Biggest size that fits with every game pixel a whole number of screen pixels,
+// so the art stays crisp on any display (2.5x on a retina screen is 5 real pixels).
+function fit(): void {
+  const dpr = window.devicePixelRatio || 1;
+  const k = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const device = Math.floor(k * dpr);
+  const scale = device >= 2 ? device / dpr : Math.max(0.5, k);
+  canvas.style.width = `${W * scale}px`;
+  canvas.style.height = `${H * scale}px`;
+  // resizing the bitmap wipes it, so it is redrawn straight away
+  renderer.resize(bitmapScale(device));
+  renderer.draw(game, alpha);
+}
+window.addEventListener('resize', fit);
+fit();
 
 input.onGesture = () => sound.unlock();
 input.onFullscreen = () => {
@@ -80,9 +97,20 @@ if (import.meta.env.PROD && onWebsite && !location.hostname.endsWith('.invalid')
   });
 }
 
+<<<<<<< HEAD
+// The rules run at a fixed 60 steps a second; the screen refreshes whenever it
+// likes. `ahead` is how far the rules are ahead of the picture: each frame the
+// picture's clock moves on by the time that really passed, the rules step until
+// they are level with it or just past it, and the renderer draws the moment in
+// between. So the picture moves evenly on any screen, and a step that lands a
+// hair early or late no longer shows up as a frozen frame followed by a double one.
+=======
+>>>>>>> main
 const STEP = 1 / 60;
+/** a frame this close (seconds) to a whole number of half steps counts as exactly that: a 60 or 120 Hz screen */
+const IN_STEP = 0.00075;
 let last = performance.now();
-let acc = 0;
+let ahead = 0;
 
 function frame(now: number): void {
   if (debug.freeze) {
@@ -90,8 +118,13 @@ function frame(now: number): void {
     requestAnimationFrame(frame);
     return;
   }
-  acc += Math.min(0.1, (now - last) / 1000);
+  let dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  // browsers report frame times a little off (some only to the millisecond);
+  // on a screen that keeps step with the rules, use the exact step instead
+  const halves = Math.round(dt / (STEP / 2));
+  const inStep = halves >= 1 && Math.abs(dt - (halves * STEP) / 2) < IN_STEP;
+  if (inStep) dt = (halves * STEP) / 2;
 
   if (input.mutePressed) {
     input.mutePressed = false;
@@ -105,12 +138,18 @@ function frame(now: number): void {
   input.taps.length = 0;
   game.touch = input.touch;
 
-  while (acc >= STEP) {
+  ahead -= dt;
+  while (ahead < 0) {
+    renderer.remember(game);
     game.update(STEP, input);
     input.endFrame();
-    acc -= STEP;
+    ahead += STEP;
   }
-  renderer.draw(game);
+  // in step with the screen, the picture need not trail the rules at all (60 Hz)
+  // or by more than half a step (120 Hz): let any extra lag drain away
+  if (inStep) ahead -= Math.min(ahead % (halves % 2 === 0 ? STEP : STEP / 2), STEP * 0.02);
+  alpha = 1 - ahead / STEP;
+  renderer.draw(game, alpha);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

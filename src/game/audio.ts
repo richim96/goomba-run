@@ -127,6 +127,24 @@ export class Sound {
     this.tone('sawtooth', 260, 60, 0.28, 0.11);
     this.noise(0.14, 0.12, 'lowpass', 1800);
   }
+  /** Richi boots something out of his way: a thump, then it whistles off (up and away, or down and out) */
+  kick(far: boolean): void {
+    this.tone('triangle', 190, 70, 0.08, 0.08);
+    this.noise(0.04, 0.04, 'highpass', 2600);
+    if (far) this.tone('sine', 700, 1900, 0.3, 0.022, 0.03);
+    else this.tone('sine', 900, 260, 0.34, 0.022, 0.03);
+  }
+  /** ... punches a Stingby over the hills */
+  punch(): void {
+    this.tone('square', 250, 90, 0.07, 0.07);
+    this.noise(0.05, 0.05, 'highpass', 2200);
+    this.tone('sine', 800, 2100, 0.3, 0.022, 0.03);
+  }
+  /** ... or flattens one */
+  smash(): void {
+    this.tone('square', 210, 55, 0.11, 0.07);
+    this.noise(0.09, 0.08, 'lowpass', 900);
+  }
   start(): void {
     [60, 64, 67, 72].forEach((n, i) => this.tone('square', midi(n), midi(n), 0.1, 0.08, i * 0.06));
   }
