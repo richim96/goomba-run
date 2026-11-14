@@ -22,7 +22,11 @@ No unit tests. Verify changes by playing in the browser. `window.__goomba` expos
 `src/main.ts` boots everything: fixed 60 Hz update, one render per animation frame, canvas scaled to the largest whole multiple of 320x180 that fits. Motion is drawn finer than the art (the owner got headaches from the judder of whole-game-pixel steps): the canvas bitmap has a whole number of real pixels per game pixel (`bitmapScale`, `Renderer.resize`), and each frame draws the moment between the last two steps (`renderer.remember(game)` before every `game.update`, then `renderer.draw(game, alpha)`). So `canvas.width` is not 320; use `W`/`H`.
 
 - `src/game/game.ts` — all state and rules. Modes `title → play → caught → over`. Tuning constants are at the top (gravity, jump, speed curve, lives, Richi distances, `DEDICATION`). `spawnPattern` holds the obstacle patterns, each unlocked at a distance. Nothing teleports between modes: on restart the Goomba drops from Richi's hands and he falls behind. Richi never jumps: whatever reaches him leaves `obstacles` and becomes harmless `debris` (`strike`): scenery is kicked (`far` shrinks away to the horizon, `drop` flips and falls off the bottom of the screen, odds per kind in `FAR_CHANCE`), a Stingby flying high (above `PUNCH_ABOVE`) is punched away (`far`), a low one is smashed flat (`squash`) and left on the ground.
+<<<<<<< HEAD
 - `src/game/render.ts` — draws everything; reads `Game`, never mutates it. Anything that moves is placed with `snap(ex(thing))` / `snap(ey(thing))` (in-between position, on the screen's pixel grid), never `Math.round(thing.x)`; text that travels with something uses `textAt`. Day/sunset/night is a crossfade between `THEMES` in `src/art/scenery.ts`.
+=======
+- `src/game/render.ts` — draws everything; reads `Game`, never mutates it. Day/sunset/night is a crossfade between `THEMES` in `src/art/scenery.ts`.
+>>>>>>> main
 - `src/game/input.ts` — keyboard + pointer (anywhere on the page), exposed as per-frame edges (`jumpPressed`, `jumpHeld`, ...). `main.ts` routes taps to the HUD buttons (`BTN_PAUSE`, `BTN_SOUND` in `render.ts`) or to a jump.
 - `src/game/audio.ts` — WebAudio sfx and a 16-bar music loop whose tempo follows the run speed. Levels were checked with an analyser (no clipping), not by ear.
 - `src/game/text.ts` — bitmap font rendering with outline/shadow, cached per string.
@@ -33,7 +37,11 @@ Art lives in `src/art/` and has no DOM dependency, so the game and `scripts/bake
 - `pix.ts` — the painter: shaded `ball`/`blob`, `line`, `rows`, auto `outline`.
 - `palette.ts` — every colour, as dark → light ramps.
 - `goomba.ts` — the hero; each frame is a `frame(pose)` call, animations are parameter sweeps.
+<<<<<<< HEAD
 - `richi.ts` + `richiSprite.ts` — Richi is the owner's avatar imported pixel for pixel (`richiSprite.ts` is generated data, do not hand-edit). `richi.ts` keeps the avatar's hair, jacket, sleeves and fists, trims a few hair rows/columns, redraws the face simpler (the `FACE` patch; the owner found the realistic face creepy, `CHIBI_FACE = false` restores it) and animates the legs (8-frame run, 3-frame kick). The arms are the avatar's own two arms lifted off as cutouts (`BACK_ARM`, `FRONT_ARM`) and placed per pose with a `Limb` (shift, flip, small turn; the fist stays upright). The run has "grabby hands" (`grabbing`): both sleeves flipped forward, reaching out and down toward the Goomba with the body leaning in, the hands taking turns (`paw`). For a blow the near fist cocks back and is thrown (`WIND`, `PUNCH`, `SLAM`, drawn once per run frame so his legs never stop). A foot in the air kicks up behind him before it drives forward (`step`). Only the raised hug arms are still drawn lines.
+=======
+- `richi.ts` + `richiSprite.ts` — Richi is the owner's avatar imported pixel for pixel (`richiSprite.ts` is generated data, do not hand-edit). `richi.ts` keeps the avatar's hair and jacket, trims a few hair rows/columns, redraws the face simpler (the `FACE` patch; the owner found the realistic face creepy, `CHIBI_FACE = false` restores it), redraws the arms, textured from the avatar's own sleeve, so they can move: they pump against the legs as he runs (`pump`; the owner found arms held straight out stiff, "like a zombie walk") and stretch into "grabby hands" only for the last strides before a catch (`reach`). It also animates the legs (8-frame run, 3-frame kick). Blows with the near fist (`wind`, `punch`, `slam`) are drawn once per run frame, so his legs never stop; that arm bends at an elbow and the upper body leans (`lean`).
+>>>>>>> main
 - `props.ts` — Stingby, obstacles, pickups, particles, HUD hearts.
 - `scenery.ts` — ground, hills (320px-periodic), clouds, trees, sky themes.
 - `font.ts` — 7px bitmap font.
