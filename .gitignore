@@ -35,3 +35,8 @@ go.work.sum
 .DS_Store
 *cache*
 .claude/
+
+# web game
+node_modules/
+dist/
+art-export/
