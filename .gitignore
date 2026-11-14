@@ -11,7 +11,7 @@
 .claude/
 
 # web game
-node_modules/
+node_modules
 dist/
 art-export/
 release/
