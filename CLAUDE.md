@@ -6,8 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Goomba Run — a browser endless runner. A Goomba flees from Richi; Stingbies and scenery get in the way. TypeScript + Canvas 2D, bundled by Vite into one self-contained `dist/index.html` that runs offline by double-click. No game engine, no runtime dependencies, no asset files: sprites are generated from code and sound is synthesised.
 
-The original Go terminal version (`main.go`, `game/`, `go.mod`) is still in the repo as legacy and is not used by the web game.
-
 ## Commands
 
 - Dev server: `npm run dev` (game at `/`, sprite contact sheet at `/art.html`)

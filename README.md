@@ -39,5 +39,3 @@ For development: `npm run dev` and open the printed URL (`/art.html` shows every
 - Every sprite is generated from code in `src/art/` (run `npm run art` to export PNGs to `art-export/`).
 - Sound effects and music are synthesised with WebAudio.
 - `npm run sim` lets a look-ahead bot play the real rules to prove every obstacle combo can be dodged and to measure how tight the jumps are.
-
-The first version of this project was a Go terminal game; that code is still in `main.go` and `game/`.
