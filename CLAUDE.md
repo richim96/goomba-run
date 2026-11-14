@@ -4,44 +4,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Goomba CLI Runner — a terminal endless runner in Go, rendered via `tcell/v2` using Unicode half-block glyphs (▀ ▄ █) so each terminal cell represents two vertical "pixels".
+Goomba Run — a browser endless runner. A Goomba flees from Richi; Stingbies and scenery get in the way. TypeScript + Canvas 2D, bundled by Vite into one self-contained `dist/index.html` that runs offline by double-click. No game engine, no runtime dependencies, no asset files: sprites are generated from code and sound is synthesised.
+
+The original Go terminal version (`main.go`, `game/`, `go.mod`) is still in the repo as legacy and is not used by the web game.
 
 ## Commands
 
-- Run: `go run .`
-- Build: `go build -o goomba_cli .`
-- Format: `gofmt -w .`
-- Vet: `go vet ./...`
-- Tidy deps: `go mod tidy`
+- Dev server: `npm run dev` (game at `/`, sprite contact sheet at `/art.html`)
+- Type-check + build: `npm run build` → `dist/index.html`
+- Export sprites as PNG: `npm run art` → `art-export/` (1x, 6x, `palette.json`)
 
-No test suite exists yet.
-
-Requires Go 1.24+ and a terminal ≥ 90x25 with color + Unicode block support.
+No test suite. Verify changes by playing in the browser. `window.game` exposes the live `Game` for inspection.
 
 ## Architecture
 
-Entry point `main.go` creates a `tcell.Screen` and hands it to `game.New(screen).Run()`. All gameplay lives in the `game` package.
+`src/main.ts` boots everything: fixed 60 Hz update with an accumulator, one render per animation frame, canvas scaled to the largest whole multiple of 320x180 that fits.
 
-Core loop (`game/game.go`):
-- Fixed 30 FPS tick via `time.Ticker` (`fixedDT = 1/30`).
-- Single select between `input.Events()` channel and ticker; `drainInput` flushes queued input each frame; renderer redraws every iteration.
-- State machine: `StateMenu → StatePlaying → StateCaught → StateDead`, plus a `paused` flag and a `tooSmall` flag toggled from `syncLayout` when the terminal shrinks below the minimum.
+- `src/game/game.ts` — all state and rules. Modes `title → play → caught → over`. Tuning constants are at the top (gravity, jump, speed curve, lives, Richi distances, `DEDICATION`).
+- `src/game/render.ts` — draws everything; reads `Game`, never mutates it. Day/sunset/night is a crossfade between `THEMES` in `src/art/scenery.ts`.
+- `src/game/input.ts` — keyboard + pointer, exposed as per-frame edges (`jumpPressed`, `jumpHeld`, ...).
+- `src/game/audio.ts` — WebAudio sfx and the music loop.
+- `src/game/text.ts` — bitmap font rendering with outline/shadow, cached per string.
+- `src/game/gfx.ts` — turns art `Pix` data into canvases.
 
-Coordinate system:
-- "World" units are virtual pixels. Terminal cells are `cellW x cellH`; world height is `cellH*2` rows (half-block trick). `syncLayout` recomputes `worldW/worldH/groundY/viewX/viewY` from the aspect ratio `baseWorldW/baseWorldH` and rescales obstacles + actors on resize.
-- Player is anchored at `playerAnchorX` (0.4 of world width) via `anchoredPlayerX()`.
+Art lives in `src/art/` and has no DOM dependency, so the game and `scripts/bake.ts` share it:
 
-Module responsibilities:
-- `game/input.go` — goroutine reading tcell events, translating them to `InputEvent` (Jump/Pause/Quit/Resize) on a channel.
-- `game/renderer.go` — draws HUD + world each frame, converts world pixels to half-block cells with top/bottom color blending.
-- `game/goomba.go` — player sprite + physics (jump, double-jump, kicked-out animation on game over).
-- `game/richi.go` — pursuer; its distance behind the player scales with `hits`; full catch sequence in `StateCaught`.
-- `game/obstacle.go` — obstacle sprite set, spawning, movement, collision AABB.
-
-Difficulty: `speed = baseSpeed + min(score*0.16, maxSpeedBonus)`; spawn cadence via `nextSpawnDelay()`; 3 lives, each hit brings Richi closer, third hit triggers the caught/kicked sequence that ends once the Goomba exits top-right.
+- `pix.ts` — the painter: shaded `ball`/`blob`, `line`, `rows`, auto `outline`.
+- `palette.ts` — every colour, as dark → light ramps.
+- `goomba.ts` — the hero; each frame is a `frame(pose)` call, animations are parameter sweeps.
+- `richi.ts` + `richiSprite.ts` — Richi is the owner's avatar imported pixel for pixel (`richiSprite.ts` is generated data, do not hand-edit). `richi.ts` keeps the avatar's head and jacket, trims a few hair rows/columns, replaces the arms with forward-reaching "grabby hands" textured from the avatar's own sleeve, and animates the legs (8-frame run).
+- `props.ts` — Stingby, obstacles, pickups, particles, HUD hearts.
+- `scenery.ts` — ground, hills (320px-periodic), clouds, trees, sky themes.
+- `font.ts` — 7px bitmap font.
 
 ## Conventions
 
-- Keep rendering inside `renderer.go`; gameplay state mutations happen in `game.go` tick functions (`updatePlaying`, `updateCaught`).
-- Anything touching screen dimensions should go through `syncLayout` so obstacles/actors rescale consistently on resize.
-- New input actions: add an `EventType` in `input.go` and handle it in `handleEvent`.
+- Gameplay mutations stay in `game.ts`; drawing stays in `render.ts`.
+- World units are pixels of the 320x180 canvas. `GROUND` is the row feet rest on; sprites anchor via `GOOMBA_ANCHOR` / `RICHI_ANCHOR`.
+- New obstacle: draw it in `props.ts`, add it to `ObKind` + `OBS` (size and hitbox insets) and to a pattern in `spawnPattern`.
+- Richi must look like the avatar: never redraw his head or jacket by eye; change poses in `richi.ts`, or re-import from a new source image.
+- Art direction set by the owner: Goomba is always grumpy (brows and fanged frown never change, even when caught); Goomba and Stingby are the only creatures; obstacles are plain scenery without faces.
+- The Claude Design canvas with the art boards is fed from `art-export/6x`; re-run `npm run art` and re-upload after changing sprites.

@@ -1,53 +1,40 @@
-# Goomba Run CLI
+# Goomba Run
 
-Fast terminal endless runner written in Go, rendered with ANSI color and half-block pixels.
+A cute pixel-art endless runner for the browser. You are a (permanently grumpy) Goomba. Richi is chasing you. Don't get caught... or do.
 
-| Start | Game Over |
-| --- | --- |
-| ![Start Screen](assets/start.png) | ![Game Over Screen](assets/game_over.png) |
+Runs offline from a single HTML file. No install, no server, no internet.
 
-## Highlights
-
-- Custom pixel-art sprites:
-  - Goomba (`16x8`)
-  - Richi (`48x24`) [myself]
-- Smooth fixed-timestep gameplay (`30 FPS`)
-- Progressive difficulty
-- 3-life chase loop:
-  - Obstacle hit -> lose life
-  - Richi gets closer after each hit
-  - Final caught sequence with kick-out game-over scene
-- Pause support (`ESC`) without quitting the game
-
-## Requirements
-
-- Go `1.24+`
-- Terminal with color + Unicode block character support
-- Minimum terminal size: `90x25`
-- Recommended size: `130x40` or larger
-
-## Run
+## Play
 
 ```bash
-go run .
+npm install
+npm run build
 ```
+
+Then double-click `dist/index.html`. That one file is the whole game: copy or AirDrop it anywhere.
+
+For development: `npm run dev` and open the printed URL (`/art.html` shows every sprite).
 
 ## Controls
 
-- `SPACE`: Jump
-- `SPACE` in air: Double jump
-- `ESC`: Pause / resume
-- `Q`: Quit
-- `Ctrl+C`: Quit
+| Key | Action |
+| --- | --- |
+| `Space` / `↑` / `W` / tap | Jump. Hold for a higher jump, press again in the air for a double jump |
+| `P` / `Esc` | Pause |
+| `M` | Sound on/off |
 
-## Gameplay
+## Rules
 
-1. Press `SPACE` to start.
-2. Avoid obstacles and increase your score, while the run gets faster.
-3. Survive 2 hits before Richi catches up.
-4. After game over, press `SPACE` to restart.
+- 3 hearts. Every hit costs one and lets Richi get closer.
+- Stumps, rocks and cacti: jump them. Low Stingby: jump it. High Stingby: stay on the ground.
+- Strawberries are worth 10 points. A floating heart gives a life back.
+- It gets faster, and the day turns to sunset and night as you run.
+- Lose the last heart and Richi catches you.
 
-## Rendering Notes
+## How it is made
 
-- Uses Unicode half-block glyphs: `▀`, `▄`, `█`
-- Pixel world is rendered in terminal cells with top/bottom color blending
+- TypeScript + Canvas 2D, built with Vite into one self-contained file.
+- Every sprite is generated from code in `src/art/` (run `npm run art` to export PNGs to `art-export/`).
+- Sound effects and music are synthesised with WebAudio.
+
+The first version of this project was a Go terminal game; that code is still in `main.go` and `game/`.
