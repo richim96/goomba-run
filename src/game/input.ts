@@ -1,4 +1,5 @@
 // Keyboard + pointer input, exposed as per-frame edges.
+import { H, W } from './game.ts';
 
 export class Input {
   jumpPressed = false;
@@ -28,14 +29,13 @@ export class Input {
         e.preventDefault();
         if (!e.repeat) this.jumpPressed = true;
         this.keysDown.add(e.code);
-      } else if (e.repeat) {
-        return;
-      } else if (e.code === 'Escape' || e.code === 'KeyP') {
-        this.pausePressed = true;
-      } else if (e.code === 'KeyM') {
-        this.mutePressed = true;
-      } else if (e.code === 'KeyF') {
-        this.onFullscreen?.();
+      } else if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'KeyM' || e.code === 'KeyF') {
+        // swallowed even on repeat, so a native wrapper never beeps for the game's own keys
+        e.preventDefault();
+        if (e.repeat) return;
+        if (e.code === 'KeyM') this.mutePressed = true;
+        else if (e.code === 'KeyF') this.onFullscreen?.();
+        else this.pausePressed = true;
       }
       this.sync();
     });
@@ -52,8 +52,9 @@ export class Input {
       if (e.pointerType === 'touch') this.touch = true;
       const r = canvas.getBoundingClientRect();
       this.taps.push({
-        x: ((e.clientX - r.left) / r.width) * canvas.width,
-        y: ((e.clientY - r.top) / r.height) * canvas.height,
+        // game pixels, whatever the size of the canvas bitmap
+        x: ((e.clientX - r.left) / r.width) * W,
+        y: ((e.clientY - r.top) / r.height) * H,
       });
       this.pointerDown = true;
       this.sync();

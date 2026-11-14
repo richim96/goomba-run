@@ -1,6 +1,6 @@
-import { DEDICATION, GROUND, H, PLAYER_X, W, type Deco, type Game } from './game.ts';
+import { DEDICATION, FAR_TIME, GROUND, H, PLAYER_X, W, type Debris, type Deco, type Game } from './game.ts';
 import type { Img, Sprites } from './gfx.ts';
-import { drawText } from './text.ts';
+import { drawText, type TextOpts } from './text.ts';
 import { THEMES, TILE_W, type SkyTheme } from '../art/scenery.ts';
 import { GOOMBA_ANCHOR } from '../art/goomba.ts';
 import { RICHI_ANCHOR } from '../art/richi.ts';
@@ -40,27 +40,129 @@ interface Star {
   phase: number;
 }
 
+/** anything with a place in the world */
+type Spot = { x: number; y?: number };
+
+/** side of the game-resolution canvas that tumbling debris is turned on before it goes to the screen */
+const SCRATCH = 96;
+/** something that moved further than this in one step was put somewhere else, not moved: no in-between picture */
+const TELEPORT = 24;
+
+// Motion is drawn finer than the art. The canvas bitmap has `k` real pixels per
+// game pixel, so sprites keep their chunky pixels but can sit between game
+// pixels, and each frame shows the moment between the last two simulation steps
+// that the screen is actually at. Whole-game-pixel steps at 60 Hz made the
+// scrolling judder and the scenery slip against the ground.
 export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly s: Sprites;
   private readonly sky: HTMLCanvasElement;
   private skyKey = '';
   private readonly stars: Star[] = [];
+  private readonly scratch: CanvasRenderingContext2D;
+  /** real pixels per game pixel in the canvas bitmap */
+  private k = 1;
+  /** how far the picture is from the previous simulation step (0) to the current one (1) */
+  private alpha = 1;
+  /** where everything was one simulation step ago */
+  private readonly was = new WeakMap<object, { x: number; y: number }>();
+  private wasScroll: number | undefined;
+  private wasGx: number | undefined;
+  private wasGy: number | undefined;
+  private wasRx: number | undefined;
 
   constructor(canvas: HTMLCanvasElement, sprites: Sprites) {
     this.ctx = canvas.getContext('2d')!;
-    this.ctx.imageSmoothingEnabled = false;
     this.s = sprites;
     this.sky = document.createElement('canvas');
     this.sky.width = W;
     this.sky.height = H;
+    const scratch = document.createElement('canvas');
+    scratch.width = SCRATCH;
+    scratch.height = SCRATCH;
+    this.scratch = scratch.getContext('2d')!;
+    this.scratch.imageSmoothingEnabled = false;
     for (let i = 0; i < 46; i++) {
       this.stars.push({ x: (i * 73 + 11) % W, y: (i * 37 + 5) % 96, phase: i * 1.7 });
     }
+    this.resize(1);
   }
 
-  draw(g: Game): void {
+  /** sets the bitmap to `k` real pixels per game pixel (a whole number); this clears the canvas */
+  resize(k: number): void {
+    const canvas = this.ctx.canvas;
+    this.k = k;
+    if (canvas.width !== W * k || canvas.height !== H * k) {
+      canvas.width = W * k;
+      canvas.height = H * k;
+    }
+  }
+
+  /** call right before every `game.update`: notes where everything is, so `draw` can show the moment between two steps */
+  remember(g: Game): void {
+    this.wasScroll = g.scroll;
+    this.wasGx = g.gx;
+    this.wasGy = g.gy;
+    this.wasRx = g.rx;
+    const lists: readonly (readonly Spot[])[] = [g.obstacles, g.pickups, g.decos, g.clouds, g.debris, g.particles];
+    for (const list of lists) {
+      for (const e of list) {
+        const p = this.was.get(e);
+        if (p) {
+          p.x = e.x;
+          p.y = e.y ?? 0;
+        } else {
+          this.was.set(e, { x: e.x, y: e.y ?? 0 });
+        }
+      }
+    }
+  }
+
+  /** a value on its way from where it was one step ago to where it is now */
+  private between(now: number, before: number | undefined): number {
+    if (this.alpha >= 1 || before === undefined || Math.abs(now - before) > TELEPORT) return now;
+    return before + (now - before) * this.alpha;
+  }
+
+  private ex(e: Spot): number {
+    return this.between(e.x, this.was.get(e)?.x);
+  }
+
+  private ey(e: Spot & { y: number }): number {
+    return this.between(e.y, this.was.get(e)?.y);
+  }
+
+  /** the nearest place on the screen's own pixel grid (in game pixels), so sprites stay crisp */
+  private snap(v: number): number {
+    return Math.round(v * this.k) / this.k;
+  }
+
+  /** how far into a repeating strip of `width` a scroll position is, on the screen's pixel grid */
+  private wrap(scroll: number, width: number): number {
+    return (Math.round(scroll * this.k) % (width * this.k)) / this.k;
+  }
+
+  /** bitmap text that travels with something in the world, placed as finely as the thing itself */
+  private textAt(text: string, x: number, y: number, o: TextOpts): void {
     const ctx = this.ctx;
+    const sx = this.snap(x);
+    const sy = this.snap(y);
+    ctx.save();
+    ctx.translate(sx - Math.floor(sx), sy - Math.floor(sy));
+    drawText(ctx, text, Math.floor(sx), Math.floor(sy), o);
+    ctx.restore();
+  }
+
+  /** `alpha`: how far the picture is from the previous simulation step (0) to the current one (1) */
+  draw(g: Game, alpha = 1): void {
+    const ctx = this.ctx;
+    this.alpha = alpha;
+    ctx.setTransform(this.k, 0, 0, this.k, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    const scroll = this.between(g.scroll, this.wasScroll);
+    const gx = this.between(g.gx, this.wasGx);
+    const gy = this.between(g.gy, this.wasGy);
+    const rx = this.between(g.rx, this.wasRx);
     ctx.save();
     if (g.shake > 0) {
       ctx.translate(Math.round((Math.random() - 0.5) * g.shake), Math.round((Math.random() - 0.5) * g.shake));
@@ -93,26 +195,26 @@ export class Renderer {
     // sun and moon ride on how "day" or "night" it is
     const dayness = lerp(nameA === 'day' ? 1 : 0, nameB === 'day' ? 1 : 0, t);
     const nightness = lerp(nameA === 'night' ? 1 : 0, nameB === 'night' ? 1 : 0, t);
-    ctx.drawImage(this.s.scenery.sun, 196, Math.round(lerp(120, 18, dayness)));
-    if (nightness > 0.01) ctx.drawImage(this.s.scenery.moon, 60, Math.round(lerp(130, 16, nightness)));
+    ctx.drawImage(this.s.scenery.sun, 196, this.snap(lerp(120, 18, dayness)));
+    if (nightness > 0.01) ctx.drawImage(this.s.scenery.moon, 60, this.snap(lerp(130, 16, nightness)));
 
     for (const c of g.clouds) {
       ctx.globalAlpha = lerp(0.95, 0.5, nightness);
-      ctx.drawImage(this.s.scenery.clouds[c.variant], Math.round(c.x), Math.round(c.y));
+      ctx.drawImage(this.s.scenery.clouds[c.variant], this.snap(this.ex(c)), this.snap(this.ey(c)));
     }
     ctx.globalAlpha = 1;
 
     const farKey = { day: 'farDay', sunset: 'farSunset', night: 'farNight' } as const;
     const nearKey = { day: 'nearDay', sunset: 'nearSunset', night: 'nearNight' } as const;
-    this.tile(this.s.scenery[farKey[nameA]], g.scroll * 0.12, GROUND - 58, 1);
-    this.tile(this.s.scenery[farKey[nameB]], g.scroll * 0.12, GROUND - 58, t);
-    this.tile(this.s.scenery[nearKey[nameA]], g.scroll * 0.3, GROUND - 40, 1);
-    this.tile(this.s.scenery[nearKey[nameB]], g.scroll * 0.3, GROUND - 40, t);
+    this.tile(this.s.scenery[farKey[nameA]], scroll * 0.12, GROUND - 58, 1);
+    this.tile(this.s.scenery[farKey[nameB]], scroll * 0.12, GROUND - 58, t);
+    this.tile(this.s.scenery[nearKey[nameA]], scroll * 0.3, GROUND - 40, 1);
+    this.tile(this.s.scenery[nearKey[nameB]], scroll * 0.3, GROUND - 40, t);
 
     // --- ground plane --------------------------------------------------------
     for (const d of g.decos) if (d.kind.startsWith('tree') || d.kind === 'bush') this.deco(d);
     const ground = this.s.scenery.ground;
-    const off = Math.floor(g.scroll) % ground.width;
+    const off = this.wrap(scroll, ground.width);
     for (let x = -off; x < W; x += ground.width) ctx.drawImage(ground, x, GROUND - 2);
     for (const d of g.decos) if (!d.kind.startsWith('tree') && d.kind !== 'bush') this.deco(d);
 
@@ -126,33 +228,39 @@ export class Renderer {
     }
 
     // --- actors ---------------------------------------------------------------
-    this.shadow(g.gx, 9, g.hugging ? 0 : Math.max(0.25, 1 - (GROUND - g.gy) / 70));
-    this.shadow(g.rx, 17, 1);
+    this.shadow(gx, 9, g.hugging ? 0 : Math.max(0.25, 1 - (GROUND - g.gy) / 70));
+    this.shadow(rx, 17, 1);
+
+    // what Richi kicked into the distance or flattened stays behind the cast
+    for (const d of g.debris) if (d.fate !== 'drop') this.debris(d);
 
     // richi
     const rFrames = this.s.richi[g.richiAnim];
-    const rImg: Img = Array.isArray(rFrames) ? rFrames[g.richiFrame % rFrames.length] : rFrames;
-    ctx.drawImage(rImg, Math.round(g.rx) - RICHI_ANCHOR.x, Math.round(g.ry) - RICHI_ANCHOR.y);
+    ctx.drawImage(rFrames[g.richiFrame % rFrames.length], this.snap(rx) - RICHI_ANCHOR.x, GROUND - RICHI_ANCHOR.y);
 
     for (const o of g.obstacles) {
+      const ox = this.ex(o);
+      const oy = this.ey(o);
       if (o.kind === 'stingby') {
         const f = Math.floor(o.t * 14) % 2;
-        this.shadow(o.x + 15, 7, 0.5);
-        ctx.drawImage(this.s.props.stingby[f], Math.round(o.x), Math.round(o.y));
-        if (o.hint && o.rise === 0) {
-          drawText(ctx, o.hint, o.x + 15, o.y + 31, { align: 'center', color: CREAM, outline: INK });
+        this.shadow(ox + 15, 7, 0.5);
+        ctx.drawImage(this.s.props.stingby[f], this.snap(ox), this.snap(oy));
+        if (o.hint) {
+          this.textAt(o.hint, ox + 15, oy + 31, { align: 'center', color: CREAM, outline: INK });
         }
       } else {
-        ctx.drawImage(this.s.props[o.kind], Math.round(o.x), Math.round(o.y));
+        ctx.drawImage(this.s.props[o.kind], this.snap(ox), this.snap(oy));
       }
     }
 
     for (const p of g.pickups) {
       const bob = Math.round(Math.sin(g.time * 5 + p.t * 6) * 2);
       const img = p.kind === 'berry' ? this.s.props.berry : this.s.props.heart;
-      ctx.drawImage(img, Math.round(p.x - img.width / 2), Math.round(p.y - img.height / 2) + bob);
+      const px = this.ex(p);
+      const py = this.ey(p);
+      ctx.drawImage(img, this.snap(px - img.width / 2), this.snap(py - img.height / 2) + bob);
       if (p.kind === 'heart' && Math.floor(g.time * 6) % 3 === 0) {
-        ctx.drawImage(this.s.props.sparkle[1], Math.round(p.x + 3), Math.round(p.y - 9) + bob);
+        ctx.drawImage(this.s.props.sparkle[1], this.snap(px + 3), this.snap(py - 9) + bob);
       }
     }
 
@@ -162,8 +270,11 @@ export class Renderer {
     let gImg: Img = Array.isArray(gFrames) ? gFrames[g.goombaFrame % gFrames.length] : gFrames;
     if (g.hitstop > 0) gImg = this.s.goombaFlash;
     ctx.globalAlpha = faded ? 0.4 : 1;
-    ctx.drawImage(gImg, Math.round(g.gx) - GOOMBA_ANCHOR.x, Math.round(g.gy) - GOOMBA_ANCHOR.y);
+    ctx.drawImage(gImg, this.snap(gx) - GOOMBA_ANCHOR.x, this.snap(gy) - GOOMBA_ANCHOR.y);
     ctx.globalAlpha = 1;
+
+    // ... and what he kicked over tumbles past in front of everything
+    for (const d of g.debris) if (d.fate === 'drop') this.debris(d);
 
     this.particles(g);
     ctx.restore();
@@ -216,7 +327,7 @@ export class Renderer {
     if (alpha <= 0.004) return;
     const ctx = this.ctx;
     ctx.globalAlpha = alpha;
-    const off = Math.floor(scroll) % TILE_W;
+    const off = this.wrap(scroll, TILE_W);
     for (let x = -off; x < W; x += TILE_W) ctx.drawImage(img, x, y);
     ctx.globalAlpha = 1;
   }
@@ -229,36 +340,71 @@ export class Renderer {
       : d.kind === 'bush' ? sc.bush
       : d.kind === 'tuft' ? sc.tuft
       : sc.flowers[Number(d.kind.slice(-1))];
-    this.ctx.drawImage(img, Math.round(d.x), GROUND + 2 - img.height);
+    this.ctx.drawImage(img, this.snap(this.ex(d)), GROUND + 2 - img.height);
   }
 
   private shadow(x: number, half: number, k: number): void {
     if (k <= 0) return;
     const ctx = this.ctx;
     const w = Math.round(half * k);
+    const cx = this.snap(x);
     ctx.fillStyle = 'rgba(30, 50, 30, 0.28)';
-    ctx.fillRect(Math.round(x) - w + 2, GROUND, (w - 2) * 2, 1);
-    ctx.fillRect(Math.round(x) - w, GROUND + 1, w * 2, 2);
-    ctx.fillRect(Math.round(x) - w + 2, GROUND + 3, (w - 2) * 2, 1);
+    ctx.fillRect(cx - w + 2, GROUND, (w - 2) * 2, 1);
+    ctx.fillRect(cx - w, GROUND + 1, w * 2, 2);
+    ctx.fillRect(cx - w + 2, GROUND + 3, (w - 2) * 2, 1);
+  }
+
+  private debris(d: Debris): void {
+    const ctx = this.ctx;
+    const dx = this.ex(d);
+    const dy = this.ey(d);
+    if (d.fate === 'squash') {
+      const flat = this.s.props.stingbyFlat;
+      ctx.drawImage(flat, this.snap(dx - flat.width / 2), this.snap(dy - flat.height / 2));
+      return;
+    }
+    const img = d.kind === 'stingby' ? this.s.props.stingby[0] : this.s.props[d.kind];
+    // far: shrinks to a speck; drop: grows a little, as if it tumbled toward the camera
+    const u = Math.min(1, d.t / FAR_TIME);
+    const scale = d.fate === 'far' ? 1 - 0.86 * u ** 0.8 : 1 + Math.min(0.35, d.t * 0.6);
+    // the tumble turns in 16 steps, so the pixels stay crisp
+    const angle = (Math.round(d.spin * d.t * 16) / 16) * Math.PI * 2;
+    // turned and resized at game resolution, so it keeps the same chunky pixels as everything else
+    const s = this.scratch;
+    s.setTransform(1, 0, 0, 1, 0, 0);
+    s.clearRect(0, 0, SCRATCH, SCRATCH);
+    s.translate(SCRATCH / 2, SCRATCH / 2);
+    s.rotate(angle);
+    s.scale(scale, scale);
+    s.drawImage(img, -img.width / 2, -img.height / 2);
+    ctx.drawImage(s.canvas, this.snap(dx) - SCRATCH / 2, this.snap(dy) - SCRATCH / 2);
   }
 
   private particles(g: Game): void {
     const ctx = this.ctx;
     for (const p of g.particles) {
       const u = p.life / p.max;
+      const px = this.ex(p);
+      const py = this.ey(p);
       if (p.kind === 'dust') {
         const img = this.s.props.dust[Math.min(2, Math.floor(u * 3))];
         ctx.globalAlpha = 0.85 - u * 0.5;
-        ctx.drawImage(img, Math.round(p.x - 4), Math.round(p.y - 4));
+        ctx.drawImage(img, this.snap(px - 4), this.snap(py - 4));
       } else if (p.kind === 'sparkle') {
         const img = this.s.props.sparkle[Math.floor(u * 4) % 4];
-        ctx.drawImage(img, Math.round(p.x - 3), Math.round(p.y - 3));
+        ctx.drawImage(img, this.snap(px - 3), this.snap(py - 3));
+      } else if (p.kind === 'impact') {
+        const img = this.s.props.impact[u < 0.45 ? 0 : 1];
+        ctx.drawImage(img, this.snap(px - 8), this.snap(py - 8));
+      } else if (p.kind === 'twinkle') {
+        const img = this.s.props.sparkle[Math.min(3, Math.floor(u * 4))];
+        ctx.drawImage(img, this.snap(px - 3), this.snap(py - 3));
       } else if (p.kind === 'heart') {
         ctx.globalAlpha = u > 0.7 ? (1 - u) / 0.3 : 1;
-        ctx.drawImage(this.s.props.miniHeart[p.variant], Math.round(p.x - 2), Math.round(p.y - 2));
+        ctx.drawImage(this.s.props.miniHeart[p.variant], this.snap(px - 2), this.snap(py - 2));
       } else if (p.text) {
         ctx.globalAlpha = u > 0.6 ? (1 - u) / 0.4 : 1;
-        drawText(ctx, p.text, p.x, p.y, { align: 'center', color: p.text === '<' ? PINK : GOLD, outline: INK });
+        this.textAt(p.text, px, py, { align: 'center', color: p.text === '<' ? PINK : GOLD, outline: INK });
       }
       ctx.globalAlpha = 1;
     }

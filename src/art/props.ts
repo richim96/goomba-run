@@ -196,6 +196,53 @@ function stingby(flap: number): Pix {
   return s.outline(P.outline);
 }
 
+/** a Stingby after Richi's fists: the same creature, pressed into a pancake */
+function stingbyFlat(): Pix {
+  const s = new Pix(38, 14);
+  // wings knocked flat, sticking out either side
+  s.ball(6, 4, 4.2, 1.6, P.wing, { bands: [0.1] });
+  s.ball(32, 5, 4.2, 1.6, P.wing, { bands: [0.1] });
+  // legs splayed out
+  s.line(17, 10, 15, 12, P.ink, 1);
+  s.rect(13, 12, 3, 1, P.ink);
+  s.line(25, 10, 27, 12, P.ink, 1);
+  s.rect(27, 12, 3, 1, P.ink);
+  s.ball(20, 7.5, 11.5, 4.3, P.bee, { bands: [-0.25, 0.4] });
+  for (let y = 3; y <= 11; y++) {
+    for (const x of [21, 22, 23]) s.over(x, y, x === 23 ? P.beeStripe[0] : P.beeStripe[1], P.bee);
+    for (const x of [27, 28, 29]) s.over(x, y, P.beeStripe[0], P.bee);
+  }
+  // the same huge eyes, squeezed wide
+  const eyeRamp = [0xd8dce8, P.white];
+  s.ball(16.5, 6, 3.8, 2.5, eyeRamp, { bands: [-0.42] });
+  s.ellipse(9.5, 6.5, 4.7, 3.4, P.outline);
+  s.ball(9.5, 6.5, 3.8, 2.5, eyeRamp, { bands: [-0.42] });
+  s.rect(8, 6, 2, 2, P.ink);
+  s.rect(15, 5, 2, 2, P.ink);
+  // the sting, bent flat along the ground
+  const cone: [number, number, number][] = [
+    [10, 8, 13],
+    [11, 5, 11],
+    [12, 3, 7],
+  ];
+  for (const [y, x0, x1] of cone) for (let x = x0; x <= x1; x++) s.set(x, y, P.ink);
+  return s.outline(P.outline);
+}
+
+/** the flash where a kick or a smash lands: a small burst, then a wider hollow one */
+function impact(i: number): Pix {
+  const s = new Pix(17, 17);
+  const c = 8;
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    const r = (k % 2 === 0 ? 5 : 3) + i * 2;
+    s.line(c, c, c + Math.cos(a) * r, c + Math.sin(a) * r, k % 2 === 0 ? P.white : P.star[2], 1);
+  }
+  if (i === 0) s.ball(c + 0.5, c + 0.5, 2.6, 2.6, [P.star[2], P.white]);
+  else s.ellipse(c + 0.5, c + 0.5, 3.2, 3.2, CLEAR);
+  return s;
+}
+
 function berry(): Pix {
   const s = new Pix(13, 15);
   s.ball(6.5, 8, 4.6, 4.4, P.berry, { bands: [-0.28, 0.2, 0.55] });
@@ -320,6 +367,8 @@ export function buildProps() {
     rock: rock(),
     cactus: cactus(),
     stingby: [stingby(0), stingby(1)],
+    stingbyFlat: stingbyFlat(),
+    impact: [impact(0), impact(1)],
     berry: berry(),
     heart: heartShape(P.heart),
     heartHud: heartShape(P.heart),
