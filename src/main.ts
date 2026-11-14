@@ -70,6 +70,16 @@ window.addEventListener('blur', autoPause);
 const inside = (p: { x: number; y: number }, r: { x: number; y: number; w: number; h: number }) =>
   p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
 
+// On the website the game saves itself for offline play, so a copy on an
+// iPhone Home Screen keeps working without internet. A double-clicked file,
+// the Mac app and the dev server skip this.
+const onWebsite = location.protocol === 'https:' || location.hostname === 'localhost';
+if (import.meta.env.PROD && onWebsite && !location.hostname.endsWith('.invalid') && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => undefined);
+  });
+}
+
 const STEP = 1 / 60;
 let last = performance.now();
 let acc = 0;
