@@ -234,7 +234,14 @@ export function buildGoomba(): GoombaArt {
     fall: frame({ lift: 1, squash: -0.5, headDy: -2, nearX: 2, farX: -2, lean: 1, eyes: 'down' }),
     land: frame({ squash: 1.5, headDy: 1, nearX: 2, farX: -2, lean: 1, eyes: 'blink' }),
     hurt: frame({ squash: 0.8, headDy: -1, nearX: 2, farX: -3, eyes: 'hurt' }),
-    // caught and cuddled: still scowling, but blushing
-    love: [frame({ bigBlush: true }), frame({ bigBlush: true, squash: 0.7, headDy: 1, eyes: 'blink' })],
+    // caught: still scowling, but blushing.
+    // 0 held, 1 squashed on the catch, 2 tossed up, 3 coming down, 4 a slow blink
+    love: [
+      frame({ bigBlush: true }),
+      frame({ bigBlush: true, squash: 1.3, headDy: 1, nearX: 1, farX: -1 }),
+      frame({ bigBlush: true, squash: -1, lift: 2, nearX: -2, nearY: -1, farX: 1, farY: -1 }),
+      frame({ bigBlush: true, squash: -0.5, lift: 1, headDy: -2, nearX: 2, farX: -2, eyes: 'down' }),
+      frame({ bigBlush: true, eyes: 'blink' }),
+    ],
   };
 }

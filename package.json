@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "art": "node scripts/bake.ts"
+    "art": "node scripts/bake.ts",
+    "sim": "node --no-warnings scripts/sim.ts"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
