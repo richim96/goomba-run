@@ -120,23 +120,10 @@ const SHOULDER: Pt = [18, 23];
 /** the far fist, showing behind his back while that arm is drawn back */
 const PEEK: Limb = { cut: 'front', mirror: 28, dark: 0.8, dy: 1 };
 
-/**
- * Grabby hands. Both of the avatar's sleeves, flipped to point forward, reach
- * out and down toward the Goomba: the near one lower, the far one higher and
- * coming from behind his chest. `paw` (-1..1) rocks them against each other, so
- * the hands take turns grabbing instead of being held out stiff.
- */
-function grabbing(paw: number): Limbs {
-  return {
-    near: { cut: 'back', mirror: 25, deg: -4 - 8 * paw, pivot: [27, 25], dx: Math.round(paw), dy: 5 },
-    far: { cut: 'back', mirror: 26, deg: -17 + 6 * paw, pivot: [28, 24], dx: -Math.round(paw), dy: 2, dark: 0.85 },
-  };
-}
-
 // A blow with the near fist: cocked back while the far hand keeps reaching, then
 // thrown straight ahead (punch) or low in front of him (slam) as the far arm
 // swings back.
-const WIND: Limbs = { near: { cut: 'back', deg: 20, pivot: SHOULDER, dy: -1 }, far: grabbing(0).far };
+const WIND: Limbs = { near: { cut: 'back', deg: 20, pivot: SHOULDER, dy: -1 }, far: { cut: 'front' } };
 const PUNCH: Limbs = { near: { cut: 'front', dx: 8, dy: -4, reach: 4 }, far: PEEK };
 const SLAM: Limbs = { near: { cut: 'front', deg: 30, pivot: [36, 33], dx: 5, dy: 7, reach: 3 }, far: PEEK };
 
@@ -158,7 +145,7 @@ interface Pose {
   /** the near leg kicks: 0 cocked back, 1 striking, 2 following through */
   kick?: 0 | 1 | 2;
   /** the avatar's own arms, or 'up': both raised to hold the Goomba overhead */
-  arms: Limbs | 'up';
+  arms: Limbs | 'up' | { reach: number };
   lift?: number;
   /** upper body shifted forward, in px: he leans into a blow (negative = leaning back) */
   lean?: number;
@@ -397,6 +384,7 @@ function frame(p: Pose): Pix {
 
   // back to front
   if (arms === 'up') arm(s, [OX + 29, dy + 25], [OX + 40, dy + 7], true, fist);
+  else if ('reach' in arms) arm(s, [OX + 29, dy + 25], [OX + 46, dy + 25 - arms.reach], true, fist);
   else if (arms.far) limb(s, cuts[arms.far.cut], fist, arms.far, OX + lean, dy, false);
   leg(s, [hip[0] + 2, hip[1]], far, farBend, true);
   leg(s, [hip[0] - 1, hip[1]], near, nearBend, false);
@@ -408,6 +396,7 @@ function frame(p: Pose): Pix {
     }
   }
   if (arms === 'up') arm(s, [OX + 21, dy + 27], [OX + 16, dy + 7], false, fist);
+  else if ('reach' in arms) arm(s, [OX + 21, dy + 27], [OX + 43, dy + 32 + arms.reach], false, fist);
   else if (arms.near) limb(s, cuts[arms.near.cut], fist, arms.near, OX + lean, dy, moved(arms.near));
 
   return s.outline(P.outline);
@@ -436,15 +425,14 @@ export function buildRichi(): RichiArt {
       const a = (i / N) * Math.PI * 2;
       return frame({ stride: a, ...pose(Math.round((1 - Math.abs(Math.cos(a))) * 2), a) });
     });
-  // the hands paw in time with the legs, a touch behind them
-  const paw = (a: number) => Math.round(Math.sin(a - 0.3) * 2) / 2;
   return {
-    run: running((lift, a) => ({ arms: grabbing(paw(a)), lift, lean: 3 })),
-    // he kicks with his hands still out, thrown up a little for balance
+    // grabby hands as first approved (straight sleeves out in front); the two hands now
+    // rock against each other once per stride instead of trembling together
+    run: running((lift, a) => ({ arms: { reach: Math.round(Math.sin(a - 0.3) * 2) }, lift })),
     kick: [
-      frame({ kick: 0, arms: grabbing(-1), lean: 3 }),
-      frame({ kick: 1, arms: grabbing(1), lift: 1, lean: 2 }),
-      frame({ kick: 2, arms: grabbing(0.5), lift: 1, lean: 2 }),
+      frame({ kick: 0, arms: { reach: -1 } }),
+      frame({ kick: 1, arms: { reach: 1 }, lift: 1 }),
+      frame({ kick: 2, arms: { reach: 0 }, lift: 1 }),
     ],
     wind: running((lift) => ({ arms: WIND, lift, lean: 1 })),
     punch: running((lift) => ({ arms: PUNCH, lift, lean: 3 })),
