@@ -1,6 +1,6 @@
 import { DEDICATION, GROUND, H, PLAYER_X, W, type Deco, type Game } from './game.ts';
 import type { Img, Sprites } from './gfx.ts';
-import { drawText } from './text.ts';
+import { drawText, textWidth } from './text.ts';
 import { THEMES, TILE_W, type SkyTheme } from '../art/scenery.ts';
 import { GOOMBA_ANCHOR } from '../art/goomba.ts';
 import { RICHI_ANCHOR } from '../art/richi.ts';
@@ -15,9 +15,15 @@ const PINK = '#ff7a98';
 const CYCLE: (keyof typeof THEMES)[] = ['day', 'day', 'sunset', 'night', 'night', 'sunset'];
 const SEGMENT = 16; // seconds per step
 
-/** tap targets of the two HUD buttons, in game pixels (generous on purpose) */
-export const BTN_PAUSE = { x: 142, y: 0, w: 17, h: 18 };
-export const BTN_SOUND = { x: 160, y: 0, w: 18, h: 18 };
+// The two HUD buttons, in game pixels: a plate big enough for a thumb, and a
+// tap area that reaches a little past it (to the top edge and between the two).
+const BTN_W = 24;
+const BTN_H = 22;
+const BTN_Y = 1;
+const PAUSE_X = 135;
+const SOUND_X = 161;
+export const BTN_PAUSE = { x: PAUSE_X - 3, y: 0, w: BTN_W + 4, h: BTN_Y + BTN_H + 4 };
+export const BTN_SOUND = { x: SOUND_X - 1, y: 0, w: BTN_W + 4, h: BTN_Y + BTN_H + 4 };
 
 // 4x4 ordered-dither thresholds, for the sky gradient
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
@@ -267,8 +273,8 @@ export class Renderer {
   private hud(g: Game): void {
     const ctx = this.ctx;
     // '@' / '%' are the speaker glyphs, '#' the pause bars
-    drawText(ctx, g.muted ? '%' : '@', BTN_SOUND.x + 5, 6, { color: g.muted ? '#b9a9a0' : CREAM, outline: INK });
-    if (g.mode === 'play') drawText(ctx, '#', BTN_PAUSE.x + 6, 6, { color: CREAM, outline: INK });
+    this.button(SOUND_X, g.muted ? '%' : '@', g.muted ? '#b9a9a0' : CREAM);
+    if (g.mode === 'play') this.button(PAUSE_X, '#', CREAM);
     if (g.banner) {
       const u = g.banner.t;
       const pop = Math.min(1, u * 8);
@@ -359,6 +365,13 @@ export class Renderer {
     drawText(ctx, g.touch ? 'TAP TO RESUME' : 'P OR SPACE TO RESUME', W / 2, 98, {
       align: 'center', color: GOLD, outline: INK,
     });
+  }
+
+  /** a HUD button: a small plate with a double-size glyph centred on it */
+  private button(x: number, glyph: string, color: string): void {
+    this.panel(x, BTN_Y, BTN_W, BTN_H);
+    const w = textWidth(glyph) * 2;
+    drawText(this.ctx, glyph, x + Math.round((BTN_W - w) / 2), BTN_Y + 4, { scale: 2, color });
   }
 
   private panel(x: number, y: number, w: number, h: number): void {
