@@ -36,5 +36,3 @@ For development: `npm run dev` and open the printed URL (`/art.html` shows every
 - TypeScript + Canvas 2D, built with Vite into one self-contained file.
 - Every sprite is generated from code in `src/art/` (run `npm run art` to export PNGs to `art-export/`).
 - Sound effects and music are synthesised with WebAudio.
-
-The first version of this project was a Go terminal game; that code is still in `main.go` and `game/`.
