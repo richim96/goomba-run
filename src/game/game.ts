@@ -31,8 +31,8 @@ const BERRY_POINTS = 10;
 // Richi clears his own path: scenery gets kicked away, Stingbies get punched
 // away (the high ones) or smashed flat (the low ones)
 const KICK_REACH = 20; // px ahead of him where his foot connects
-const PUNCH_REACH = 27; // ... where his fist lands at full stretch
-const SMASH_REACH = 27; // ... and where it comes down, low in front of him
+const PUNCH_REACH = 24; // ... where his fist lands at full stretch
+const SMASH_REACH = 18; // ... and where it comes down, low in front of him
 const KICK_LEAD = 0.1; // seconds of wind-up before the blow lands
 const FIST_LEAD = 0.16;
 /** a Stingby flying above this line is punched, one below it is smashed */
@@ -134,7 +134,7 @@ export interface Cloud {
 }
 
 type GoombaAnim = 'idle' | 'run' | 'jump' | 'fall' | 'land' | 'hurt' | 'love';
-type RichiAnim = 'run' | 'kick' | 'wind' | 'punch' | 'slam' | 'hug';
+type RichiAnim = 'run' | 'kick' | 'smash' | 'wind' | 'punch' | 'hug';
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T>(xs: readonly T[]): T => xs[Math.floor(Math.random() * xs.length)];
@@ -191,6 +191,8 @@ export class Game {
   /** something is about to reach his foot / his fist: he winds up */
   private kickSoon = false;
   private fistSoon = false;
+  /** ... and that something is flying high (a punch) rather than low (a smash) */
+  private fistSoonHigh = false;
   richiAnim: RichiAnim = 'run';
   richiFrame = 0;
   hugging = false;
@@ -772,7 +774,10 @@ export class Game {
         continue;
       }
       if (gap < (this.speed + d.extraSpeed) * (bee ? FIST_LEAD : KICK_LEAD) + 4) {
-        if (bee) this.fistSoon = true;
+        if (bee) {
+          this.fistSoon = true;
+          this.fistSoonHigh = o.baseY < PUNCH_ABOVE;
+        }
         else this.kickSoon = true;
       }
       left.push(o);
@@ -927,15 +932,15 @@ export class Game {
       // he stretches up for the throw, then stands and waits for the catch
       this.richiFrame = this.hugT >= 1 && this.tossPhase() < 0.14 ? 1 : 0;
     } else if (this.fistT > 0 && this.fistT >= this.kickT) {
-      // his legs keep running under a punch: these share the run cycle's frames
-      this.richiAnim = this.fistBlow;
-      this.richiFrame = Math.floor(this.rT * 8);
+      // his legs keep running under a punch; for a smash he plants his feet
+      this.richiAnim = this.fistBlow === 'punch' ? 'punch' : 'smash';
+      this.richiFrame = this.fistBlow === 'punch' ? Math.floor(this.rT * 8) : 1;
     } else if (this.kickT > 0) {
       this.richiAnim = 'kick';
       this.richiFrame = this.kickT > BLOW_TIME * 0.45 ? 1 : 2;
     } else if (this.fistSoon) {
-      this.richiAnim = 'wind';
-      this.richiFrame = Math.floor(this.rT * 8);
+      this.richiAnim = this.fistSoonHigh ? 'wind' : 'smash';
+      this.richiFrame = this.fistSoonHigh ? Math.floor(this.rT * 8) : 0;
     } else if (this.kickSoon) {
       this.richiAnim = 'kick';
       this.richiFrame = 0;
