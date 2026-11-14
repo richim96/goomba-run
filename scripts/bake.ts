@@ -1,52 +1,23 @@
 // Exports every sprite as PNG strips (1x and 6x) plus the palette, into art-export/.
 // Run with: npm run art
-import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { artGroups } from '../src/art/index.ts';
 import { P } from '../src/art/palette.ts';
 import { Pix } from '../src/art/pix.ts';
-
-function crc32(buf: Uint8Array): number {
-  let c = ~0;
-  for (const b of buf) {
-    c ^= b;
-    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
-  }
-  return ~c >>> 0;
-}
-
-function chunk(type: string, data: Uint8Array): Buffer {
-  const head = Buffer.alloc(8);
-  head.writeUInt32BE(data.length, 0);
-  head.write(type, 4, 'ascii');
-  const body = Buffer.concat([head.subarray(4), data]);
-  const tail = Buffer.alloc(4);
-  tail.writeUInt32BE(crc32(body), 0);
-  return Buffer.concat([head.subarray(0, 4), body, tail]);
-}
+import { encodePng } from './png.ts';
 
 function png(p: Pix, scale: number): Buffer {
   const w = p.w * scale;
   const h = p.h * scale;
   const src = p.rgba();
-  const raw = Buffer.alloc((w * 4 + 1) * h);
+  const out = new Uint8Array(w * h * 4);
   for (let y = 0; y < h; y++) {
-    const row = y * (w * 4 + 1);
     for (let x = 0; x < w; x++) {
       const s = (Math.floor(y / scale) * p.w + Math.floor(x / scale)) * 4;
-      raw.set(src.subarray(s, s + 4), row + 1 + x * 4);
+      out.set(src.subarray(s, s + 4), (y * w + x) * 4);
     }
   }
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(w, 0);
-  ihdr.writeUInt32BE(h, 4);
-  ihdr.set([8, 6, 0, 0, 0], 8);
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(raw, { level: 9 })),
-    chunk('IEND', new Uint8Array()),
-  ]);
+  return encodePng(w, h, out);
 }
 
 /** frames side by side, 2px apart */

@@ -28,14 +28,13 @@ export class Input {
         e.preventDefault();
         if (!e.repeat) this.jumpPressed = true;
         this.keysDown.add(e.code);
-      } else if (e.repeat) {
-        return;
-      } else if (e.code === 'Escape' || e.code === 'KeyP') {
-        this.pausePressed = true;
-      } else if (e.code === 'KeyM') {
-        this.mutePressed = true;
-      } else if (e.code === 'KeyF') {
-        this.onFullscreen?.();
+      } else if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'KeyM' || e.code === 'KeyF') {
+        // swallowed even on repeat, so a native wrapper never beeps for the game's own keys
+        e.preventDefault();
+        if (e.repeat) return;
+        if (e.code === 'KeyM') this.mutePressed = true;
+        else if (e.code === 'KeyF') this.onFullscreen?.();
+        else this.pausePressed = true;
       }
       this.sync();
     });
