@@ -4,23 +4,40 @@ type Wave = OscillatorType;
 
 const midi = (n: number) => 440 * 2 ** ((n - 69) / 12);
 
-// The tune: 16 bars of eighth notes in C major (A A' B B'). 0 lets the previous
-// note ring. Strong beats always land on a chord tone, so it cannot sour.
+// The tune: a slow, cosy walk in G major, 32 bars of eighth notes (A A' B A').
+// 0 lets the previous note ring. It stays in the middle of the keyboard with
+// long notes and rests, and every strong beat lands on a chord tone.
+// prettier-ignore
+const A_START = [
+  71, 0, 0, 74, 0, 0, 71, 0,   69, 0, 0, 0, 66, 0, 69, 0,
+  67, 0, 0, 71, 0, 0, 67, 0,   64, 0, 0, 0, 67, 0, 64, 0,
+  62, 0, 67, 0, 71, 0, 0, 0,   69, 0, 0, 66, 69, 0, 0, 0,
+];
 // prettier-ignore
 const LEAD = [
-  76, 0, 79, 0, 84, 0, 79, 76,   74, 0, 79, 0, 83, 0, 79, 74,
-  72, 0, 76, 0, 81, 0, 76, 72,   81, 79, 77, 0, 81, 0, 84, 0,
-  76, 0, 79, 0, 84, 0, 88, 0,    86, 0, 83, 0, 79, 0, 83, 86,
-  84, 0, 81, 0, 77, 0, 81, 0,    83, 0, 86, 0, 79, 81, 83, 0,
-  84, 0, 0, 83, 81, 0, 76, 0,    83, 0, 0, 81, 79, 0, 76, 0,
-  81, 0, 0, 79, 77, 0, 81, 0,    79, 0, 76, 0, 72, 0, 76, 79,
-  81, 0, 84, 0, 89, 0, 84, 81,   83, 0, 86, 0, 91, 0, 86, 83,
-  84, 0, 79, 0, 76, 0, 79, 0,    84, 0, 0, 0, 79, 81, 83, 0,
+  ...A_START,   67, 0, 64, 0, 67, 0, 72, 0,   69, 0, 0, 0, 0, 0, 0, 0, // A  : ends open, on D
+  ...A_START,   67, 0, 64, 0, 72, 0, 71, 0,   67, 0, 0, 0, 0, 0, 0, 0, // A' : comes home to G
+  76, 0, 0, 74, 0, 71, 0, 0,   72, 0, 0, 0, 64, 0, 67, 0,              // B  : a little higher and wistful
+  74, 0, 0, 71, 0, 67, 0, 0,   69, 0, 0, 0, 0, 0, 66, 0,
+  67, 0, 71, 0, 76, 0, 0, 0,   74, 0, 72, 0, 0, 0, 67, 0,
+  69, 0, 0, 71, 0, 0, 69, 0,   66, 0, 0, 0, 0, 0, 0, 0,
+  ...A_START,   67, 0, 64, 0, 72, 0, 71, 0,   67, 0, 0, 0, 0, 0, 0, 0, // A'
 ];
-// bass root for each bar:  C   G   Am  F   C   G   F   G   Am  Em  F   C   F   G   C   C
-const ROOTS = [48, 43, 45, 41, 48, 43, 41, 43, 45, 40, 41, 48, 41, 43, 48, 48];
-const BPM_SLOW = 132;
-const BPM_FAST = 158;
+// one chord per bar: [bass note, three notes for the soft plucked pattern]
+const G = [43, 55, 59, 62];
+const D = [50, 54, 57, 62];
+const D_F = [42, 54, 57, 62]; // D with F sharp in the bass, to step down smoothly
+const EM = [40, 52, 55, 59];
+const C = [48, 52, 55, 60];
+const A_CHORDS = [G, D_F, EM, C, G, D];
+const CHORDS = [
+  ...A_CHORDS, C, D,
+  ...A_CHORDS, C, G,
+  EM, C, G, D, EM, C, D, D,
+  ...A_CHORDS, C, G,
+];
+const BPM_SLOW = 136;
+const BPM_FAST = 168;
 /** overall loudness; a limiter after it keeps overlapping sounds from clipping */
 const VOLUME = 2.2;
 
@@ -53,7 +70,13 @@ export class Sound {
       limiter.connect(this.ctx.destination);
       this.musicGain = this.ctx.createGain();
       this.musicGain.gain.value = 0;
-      this.musicGain.connect(this.master);
+      // the music goes through a low-pass filter: it takes the sharp edge off
+      const warm = this.ctx.createBiquadFilter();
+      warm.type = 'lowpass';
+      warm.frequency.value = 1700;
+      warm.Q.value = 0.4;
+      this.musicGain.connect(warm);
+      warm.connect(this.master);
       const n = this.ctx.sampleRate;
       this.noiseBuf = this.ctx.createBuffer(1, n, n);
       const d = this.noiseBuf.getChannelData(0);
@@ -169,7 +192,7 @@ export class Sound {
 
   music(on: boolean): void {
     if (!this.ctx || !this.musicGain) return;
-    this.musicGain.gain.setTargetAtTime(on ? 0.75 : 0, this.ctx.currentTime, 0.08);
+    this.musicGain.gain.setTargetAtTime(on ? 0.5 : 0, this.ctx.currentTime, 0.08);
     if (on && this.musicTimer === null) {
       this.nextStep = 0;
       this.nextTime = this.ctx.currentTime + 0.06;
@@ -180,10 +203,27 @@ export class Sound {
     }
   }
 
+  /** a soft note for the music: eases in, holds, then fades, instead of the clicky game blips */
+  private soft(wave: Wave, note: number, dur: number, vol: number, delay: number, cents = 0): void {
+    if (!this.ctx || !this.musicGain) return;
+    const t = this.ctx.currentTime + delay;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = wave;
+    osc.frequency.value = midi(note);
+    osc.detune.value = cents;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.03);
+    g.gain.setTargetAtTime(vol * 0.6, t + 0.03, dur * 0.3);
+    g.gain.setTargetAtTime(0, t + dur * 0.75, dur * 0.18);
+    osc.connect(g).connect(this.musicGain);
+    osc.start(t);
+    osc.stop(t + dur * 1.8 + 0.1);
+  }
+
   /** queue every note that starts in the next 200 ms */
   private schedule(): void {
     if (!this.ctx || !this.musicGain) return;
-    const out = this.musicGain;
     // if the tab was asleep, skip ahead instead of machine-gunning the backlog
     if (this.nextTime < this.ctx.currentTime - 0.2) this.nextTime = this.ctx.currentTime + 0.05;
     while (this.nextTime < this.ctx.currentTime + 0.2) {
@@ -191,23 +231,24 @@ export class Sound {
       const i = this.nextStep % LEAD.length;
       const beat = i % 8;
       const delay = Math.max(0, this.nextTime - this.ctx.currentTime);
+      const [bass, low, mid, high] = CHORDS[Math.floor(i / 8)];
 
+      // melody: two slightly detuned voices, which sounds warmer than one
       const note = LEAD[i];
       if (note) {
         let len = 1;
-        while (len < 4 && LEAD[(i + len) % LEAD.length] === 0) len++;
-        const f = midi(note);
-        this.tone('triangle', f, f, step * len * 0.95, 0.05, delay, out);
-        this.tone('square', f, f, step * 0.5, 0.009, delay, out);
+        while (len < 8 && LEAD[(i + len) % LEAD.length] === 0) len++;
+        this.soft('triangle', note, step * len, 0.075, delay, -5);
+        this.soft('sine', note, step * len, 0.04, delay, 6);
       }
 
-      const root = ROOTS[Math.floor(i / 8)];
-      const bass = [root, 0, root + 12, 0, root, 0, root + 12, root + 7][beat];
-      if (bass) this.tone('triangle', midi(bass), midi(bass), step * 1.5, 0.075, delay, out);
+      // a quiet plucked pattern underneath, like a small guitar
+      const pluck = [low, mid, high, mid, low, high, mid, high][beat];
+      this.soft('triangle', pluck, step * 1.6, beat % 2 === 0 ? 0.03 : 0.02, delay);
 
-      if (beat === 0 || beat === 4) this.tone('sine', 120, 45, 0.11, 0.11, delay, out);
-      else if (beat === 2 || beat === 6) this.noise(0.07, 0.028, 'bandpass', 1800, delay, out);
-      else this.noise(0.025, 0.012, 'highpass', 7000, delay, out);
+      // bass: one long note per half bar
+      if (beat === 0) this.soft('sine', bass, step * 4, 0.1, delay);
+      else if (beat === 4) this.soft('sine', bass, step * 3.5, 0.07, delay);
 
       this.nextStep++;
       this.nextTime += step;
