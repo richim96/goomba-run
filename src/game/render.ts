@@ -1,10 +1,6 @@
 import { DEDICATION, FAR_TIME, GROUND, H, PLAYER_X, W, type Debris, type Deco, type Game } from './game.ts';
 import type { Img, Sprites } from './gfx.ts';
-<<<<<<< HEAD
-import { drawText, type TextOpts } from './text.ts';
-=======
-import { drawText, textWidth } from './text.ts';
->>>>>>> main
+import { drawText, textWidth, type TextOpts } from './text.ts';
 import { THEMES, TILE_W, type SkyTheme } from '../art/scenery.ts';
 import { GOOMBA_ANCHOR } from '../art/goomba.ts';
 import { RICHI_ANCHOR } from '../art/richi.ts';
@@ -488,7 +484,7 @@ export class Renderer {
     const w = 168;
     const h = 78;
     const x = W - w - 10;
-    const y = 18;
+    const y = 28; // below the HUD buttons
     this.panel(x, y, w, h);
     drawText(ctx, 'RICHI CAUGHT YOU <', x + w / 2, y + 9, { align: 'center', color: PINK, outline: INK });
     drawText(ctx, String(g.score), x + w / 2, y + 23, { align: 'center', scale: 3, color: CREAM, outline: INK });
