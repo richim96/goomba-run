@@ -97,15 +97,12 @@ if (import.meta.env.PROD && onWebsite && !location.hostname.endsWith('.invalid')
   });
 }
 
-<<<<<<< HEAD
 // The rules run at a fixed 60 steps a second; the screen refreshes whenever it
 // likes. `ahead` is how far the rules are ahead of the picture: each frame the
 // picture's clock moves on by the time that really passed, the rules step until
 // they are level with it or just past it, and the renderer draws the moment in
 // between. So the picture moves evenly on any screen, and a step that lands a
 // hair early or late no longer shows up as a frozen frame followed by a double one.
-=======
->>>>>>> main
 const STEP = 1 / 60;
 /** a frame this close (seconds) to a whole number of half steps counts as exactly that: a 60 or 120 Hz screen */
 const IN_STEP = 0.00075;
