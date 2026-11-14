@@ -36,8 +36,8 @@ const CHORDS = [
   EM, C, G, D, EM, C, D, D,
   ...A_CHORDS, C, G,
 ];
-const BPM_SLOW = 92;
-const BPM_FAST = 106;
+const BPM_SLOW = 112;
+const BPM_FAST = 138;
 /** overall loudness; a limiter after it keeps overlapping sounds from clipping */
 const VOLUME = 2.2;
 
