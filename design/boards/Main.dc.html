@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Goomba Run cast</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5c331f}a:hover{color:#2a1810}
+</style>
+</helmet>
+<div style="width: 1280px; height: 1190px; box-sizing: border-box; padding: 48px; display: flex; flex-direction: column; gap: 36px; background: #cfeafb; color: #2a1810; font-family: 'Pixelify Sans', ui-monospace, monospace">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 56px; font-weight: 700; line-height: 1.1">Goomba Run: the cast</h1>
+<p style="margin: 0; font-size: 20px; color: #5c331f">Every frame is generated from code in src/art and exported with npm run art. Sprites shown at 4x and 3x.</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 32px; font-weight: 600">Goomba, always grumpy</h2>
+<div style="display: flex; flex-direction: row; gap: 32px; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<img src="../images/a7fc890299163e1a2654edfeabd03b25.png" alt="Goomba waddle run cycle" style="height: 120px; image-rendering: pixelated; align-self: flex-start">
+<span style="font-size: 16px; color: #5c331f">waddle run, 8 frames</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: row; gap: 32px; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<img src="../images/a84c2a2724cfbacf36e835b568dca155.png" alt="Goomba idle frames" style="height: 120px; image-rendering: pixelated; align-self: flex-start">
+<span style="font-size: 16px; color: #5c331f">idle, 3 frames</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<img src="../images/d4874d08f606d1350e049dd97711ca8e.png" alt="Goomba jumping" style="height: 120px; image-rendering: pixelated; align-self: flex-start">
+<span style="font-size: 16px; color: #5c331f">jump</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<img src="../images/00886b860eb38b84041793212711ea1e.png" alt="Goomba falling" style="height: 120px; image-rendering: pixelated; align-self: flex-start">
+<span style="font-size: 16px; color: #5c331f">fall</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<img src="../images/f5542a81d6776b7754f28f9f256a3e48.png" alt="Goomba hurt" style="height: 120px; image-rendering: pixelated; align-self: flex-start">
+<span style="font-size: 16px; color: #5c331f">hurt</span>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 32px; font-weight: 600">Gaspare, the chaser</h2>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<img src="../images/8ccb291df7428fd861a00f28e63505c1.png" alt="Gaspare in a yellow hard hat, red check flannel with rolled-up sleeves, tool belt with a satchel at the back, jeans, tan work boots; last frame holds his arms round his belly" style="height: 128px; image-rendering: pixelated; align-self: flex-start">
+<span style="font-size: 16px; color: #5c331f">run (4 of 8 frames), punch, smash, and the catch: arms wrapped round the Goomba</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 32px; font-weight: 600">Stingby</h2>
+<div style="display: flex; flex-direction: row; gap: 32px; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<img src="../images/630b9ad9a3e9d9fbc50cc9a266f44a28.png" alt="Stingby wing frames" style="height: 156px; image-rendering: pixelated; align-self: flex-start">
+<span style="font-size: 16px; color: #5c331f">2 wing frames. Flies low (jump it) or at jump height (stay down)</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<img src="../images/16fcad2ec4fcbd724ad57dab9afda786.png" alt="Stingby flattened on the ground" style="height: 84px; image-rendering: pixelated; align-self: flex-start">
+<span style="font-size: 16px; color: #5c331f">after Gaspare's low punch</span>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1190}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

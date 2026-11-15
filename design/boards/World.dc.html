@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Goomba Run world and palette</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5c331f}a:hover{color:#2a1810}
+</style>
+</helmet>
+<div style="width: 1492px; height: 930px; box-sizing: border-box; padding: 48px; display: flex; flex-direction: column; gap: 32px; background: #cfeafb; color: #2a1810; font-family: 'Pixelify Sans', ui-monospace, monospace">
+<h1 style="margin: 0; font-size: 56px; font-weight: 700; line-height: 1.1">World and palette</h1>
+
+<div style="display: flex; flex-direction: row; gap: 64px; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 28px; font-weight: 600">Obstacles</h2>
+<div style="display: flex; flex-direction: row; gap: 28px; align-items: flex-end">
+<img src="../images/43dce175777df281cb9e1b5a75769103.png" alt="Tree stump" style="height: 114px; image-rendering: pixelated">
+<img src="../images/8315d6c6a60f682fbc534852988b806b.png" alt="Mossy rock" style="height: 96px; image-rendering: pixelated">
+<img src="../images/58606df2483ec5fb0894fbcf604559cc.png" alt="Cactus with a flower" style="height: 162px; image-rendering: pixelated">
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 28px; font-weight: 600">Pickups</h2>
+<div style="display: flex; flex-direction: row; gap: 28px; align-items: flex-end">
+<img src="../images/a5fc5f80bff9d9334e4613254bd119c0.png" alt="Strawberry, worth 10 points" style="height: 90px; image-rendering: pixelated">
+<img src="../images/6b167f2b1765fec09220986c674548af.png" alt="Heart, restores one life" style="height: 66px; image-rendering: pixelated">
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 28px; font-weight: 600">Trees</h2>
+<img src="../images/64c2ad9a74fc89135bc200c6c247a321.png" alt="Green tree and blossom tree" style="height: 176px; image-rendering: pixelated; align-self: flex-start">
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 28px; font-weight: 600">Ground tile</h2>
+<img src="../images/601c5a7a77ca1afc904a323a233e5fe6.png" alt="Grass and dirt ground tile" style="height: 136px; image-rendering: pixelated; align-self: flex-start">
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 28px; font-weight: 600">Backdrop: clouds and near hills, tiling every 320px</h2>
+<img src="../images/98e9e68f5f14facebe99944b9c3fbe70.png" alt="Three cloud shapes" style="height: 60px; image-rendering: pixelated; align-self: flex-start">
+<img src="../images/3650c428bae8e80e4888ed190212d4f9.png" alt="Near hills strip with small trees" style="width: 960px; image-rendering: pixelated; align-self: flex-start">
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 28px; font-weight: 600">Palette ramps, dark to light</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 32px">
+<sc-for list="{{ramps}}" as="ramp" hint-placeholder-count="8">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 16px; color: #5c331f">{{ramp.name}}</span>
+<div style="display: flex; flex-direction: row; border: 2px solid #2a1810">
+<sc-for list="{{ramp.colors}}" as="c" hint-placeholder-count="4">
+<div style="height: 28px; flex-grow: 1; background: {{c}}"></div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+ramps: [
+{ name: 'Goomba head', colors: ['#5c331f', '#874f33', '#a76a47', '#c48a62'] },
+{ name: 'Goomba body', colors: ['#c4a070', '#e4cb9a', '#f6e6c0'] },
+{ name: 'Goomba shoes', colors: ['#4a2a1a', '#6b4026', '#8a5636'] },
+{ name: 'Stingby', colors: ['#6e3a16', '#c9781a', '#f0a828', '#ffd24a'] },
+{ name: 'Gaspare hard hat', colors: ['#b87e00', '#f0b000', '#ffd43a'] },
+{ name: 'Gaspare flannel', colors: ['#4a0e10', '#7a1a1c', '#a82a2a', '#cc4a40', '#e87a6a'] },
+{ name: 'Grass and dirt', colors: ['#2f7a3a', '#7dcc5a', '#b4e87a', '#8f5a36', '#d49c64'] },
+{ name: 'Hearts and berries', colors: ['#9e1f38', '#d43a4a', '#e8456e', '#ff7a98'] }
+]
+};
+}
+}
+</script>
+</body>
+</html>
