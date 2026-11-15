@@ -20,21 +20,26 @@ export const THEMES: Record<'day' | 'sunset' | 'night', SkyTheme> = {
     sky: [0x5fb4ee, 0x7cc6f4, 0x9ed8f8, 0xc2e8fb, 0xe2f5fc, 0xfdf3dc],
     far: [0x7fb8c4, 0x9ccfd0, 0xbfe3d6],
     near: [0x3f9a58, 0x5fb85e, 0x8fd670],
-    tint: [0x000000, 0],
+    // a pale haze over the backdrop: the scenery was more colourful than the cast and
+    // the cactus almost the colour of the hills, which the owner found uncomfortable to
+    // read. This strength puts the scenery below the cast without changing sky brightness.
+    tint: [0xc8dcec, 0.32],
     stars: 0,
   },
   sunset: {
     sky: [0x5a4a9c, 0x8a5aa8, 0xc86a9a, 0xf08a7a, 0xf8b070, 0xfdd98a],
     far: [0x8a5a90, 0xa8709a, 0xd08a9c],
     near: [0x3a6a5a, 0x4f8a5c, 0x7fae62],
-    tint: [0xff7a4a, 0.1],
+    // the same haze in the evening's own colour: a dusty peach (was a thin orange glaze)
+    tint: [0xe4c4b8, 0.45],
     stars: 0.25,
   },
   night: {
     sky: [0x141038, 0x1c1a50, 0x262a6a, 0x34408a, 0x4a5aa2, 0x6a78b4],
     far: [0x2a3068, 0x364080, 0x4a589a],
     near: [0x1e4a52, 0x2a6258, 0x3f8062],
-    tint: [0x1a1a5a, 0.26],
+    // ... and at night a muted slate blue (was a thin, strong indigo)
+    tint: [0x464c60, 0.78],
     stars: 1,
   },
 };

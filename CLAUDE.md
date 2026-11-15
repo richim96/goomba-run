@@ -54,6 +54,7 @@ One build, three ways to run it, all from the same `dist/index.html`:
 - World units are pixels of the 320x180 canvas. `GROUND` is the row feet rest on; sprites anchor via `GOOMBA_ANCHOR` / `RICHI_ANCHOR`.
 - New obstacle: draw it in `props.ts`, add it to `ObKind` + `OBS` (size and hitbox insets) and to a pattern in `spawnPattern`.
 - Richi must look like the avatar: never redraw his head or jacket by eye; change poses in `richi.ts`, or re-import from a new source image.
+- Keep the backdrop quieter than the cast: every theme's `tint` in `THEMES` (`scenery.ts`) is a haze laid over sky, hills, scenery and ground, behind the actors (day 32%, sunset 45%, night 78%). The owner found the game uncomfortable to look at when the scenery was as colourful as the Goomba and obstacles, and approved the haze; do not weaken it, and check new scenery or sky colours against it.
 - Keep blinking slow and soft: prompts use `blinkOn` in `render.ts` (about once a second), the hit flicker fades instead of vanishing, eye blinks are rare. The owner found fast blinking unpleasant.
 - The catch celebration is a toss-and-catch loop (`TOSS_*` constants in `game.ts`, Goomba `love` frames 0-4).
 - Do not add or change on-screen wording, jokes or names without asking; the owner rejected rotating game-over lines. The game-over card says `RICHI CAUGHT YOU <` and nothing else.
