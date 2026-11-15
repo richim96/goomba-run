@@ -1,0 +1,35 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "h": 1190,
+      "title": "Cast",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "World.dc.html": {
+      "h": 922,
+      "title": "World and palette",
+      "w": 1501,
+      "x": 1360,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-14T13:20:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {},
+  "order": [
+    "Main.dc.html",
+    "World.dc.html"
+  ],
+  "pages": [],
+  "title": "Goomba Run Art"
+}
