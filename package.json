@@ -9,7 +9,6 @@
     "preview": "vite preview",
     "art": "node --no-warnings scripts/bake.ts",
     "sim": "node --no-warnings scripts/sim.ts",
-    "app:mac": "bash scripts/build-mac.sh",
     "icons": "node --no-warnings scripts/make-icons.ts"
   },
   "devDependencies": {

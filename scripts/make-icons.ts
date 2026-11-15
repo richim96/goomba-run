@@ -1,6 +1,5 @@
 // Draws every app icon from the Goomba sprite. Pure node, no image tools.
-//   node scripts/make-icons.ts                 -> public/icons/*.png (website, iPhone/iPad Home Screen)
-//   node scripts/make-icons.ts --icns <file>   -> also the macOS app icon
+//   node scripts/make-icons.ts -> public/icons/*.png (website, iPhone/iPad Home Screen, Mac Dock)
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { buildGoomba, GOOMBA_ANCHOR } from '../src/art/goomba.ts';
 import { THEMES } from '../src/art/scenery.ts';
@@ -114,28 +113,4 @@ writeFileSync(web + 'icon-192.png', png(rounded, 192));
 writeFileSync(web + 'icon-512.png', png(rounded, 512));
 writeFileSync(web + 'icon-maskable-512.png', png(square, 512));
 writeFileSync(web + 'apple-touch-icon.png', png(square, 180));
-let made = 4;
-
-// An .icns file is a small container of PNGs, one per size.
-const flag = process.argv.indexOf('--icns');
-if (flag > 0 && process.argv[flag + 1]) {
-  const sizes: [string, number][] = [
-    ['icp4', 16], ['icp5', 32], ['icp6', 64], ['ic07', 128], ['ic08', 256], ['ic09', 512], ['ic10', 1024],
-    ['ic11', 32], ['ic12', 64], ['ic13', 256], ['ic14', 512],
-  ];
-  const parts: Buffer[] = [];
-  for (const [type, size] of sizes) {
-    const data = png(rounded, size);
-    const head = Buffer.alloc(8);
-    head.write(type, 0, 'ascii');
-    head.writeUInt32BE(data.length + 8, 4);
-    parts.push(head, data);
-  }
-  const body = Buffer.concat(parts);
-  const file = Buffer.alloc(8);
-  file.write('icns', 0, 'ascii');
-  file.writeUInt32BE(body.length + 8, 4);
-  writeFileSync(process.argv[flag + 1], Buffer.concat([file, body]));
-  made += 1;
-}
-console.log(`wrote ${made} icons`);
+console.log('wrote 4 icons');
