@@ -1,8 +1,11 @@
-import { Game, H, W } from './game/game.ts';
-import { Input } from './game/input.ts';
-import { BTN_PAUSE, BTN_SOUND, Renderer } from './game/render.ts';
+import Phaser from 'phaser';
 import { Sound } from './game/audio.ts';
-import { buildSprites } from './game/gfx.ts';
+import { BTN_PAUSE, BTN_SOUND, H, W } from './game/config.ts';
+import { gameConfig } from './game/gameConfig.ts';
+import { Input } from './game/input.ts';
+import type { RunScene } from './game/RunScene.ts';
+import { shell } from './game/shell.ts';
+import { sourceSprites } from './game/textures.ts';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
@@ -13,13 +16,12 @@ try {
   /* storage unavailable */
 }
 const input = new Input(canvas);
-const game = new Game(sound);
-const sprites = buildSprites();
-const renderer = new Renderer(canvas, sprites);
-game.muted = sound.muted;
+shell.sfx = sound;
+shell.controls = input;
+shell.muted = sound.muted;
 
-/** how far the last picture was from the previous simulation step (0) to the current one (1) */
-let alpha = 1;
+const game = new Phaser.Game(gameConfig({ type: Phaser.WEBGL, canvas }));
+const run = () => game.scene.getScene('run') as RunScene | null;
 
 /** the canvas bitmap never gets wider than this many real pixels per game pixel (10 = 3200 x 1800) */
 const MAX_BITMAP_SCALE = 10;
@@ -36,19 +38,20 @@ function bitmapScale(device: number): number {
 
 // Biggest size that fits with every game pixel a whole number of screen pixels,
 // so the art stays crisp on any display (2.5x on a retina screen is 5 real pixels).
+// The scenes' cameras zoom by the same number, so sprites keep their chunky
+// pixels but can sit between game pixels.
 function fit(): void {
   const dpr = window.devicePixelRatio || 1;
   const k = Math.min(window.innerWidth / W, window.innerHeight / H);
   const device = Math.floor(k * dpr);
   const scale = device >= 2 ? device / dpr : Math.max(0.5, k);
+  shell.k = bitmapScale(device);
+  game.scale.resize(W * shell.k, H * shell.k);
   canvas.style.width = `${W * scale}px`;
   canvas.style.height = `${H * scale}px`;
-  // resizing the bitmap wipes it, so it is redrawn straight away
-  renderer.resize(bitmapScale(device));
-  renderer.draw(game, alpha);
 }
 window.addEventListener('resize', fit);
-fit();
+game.events.once(Phaser.Core.Events.READY, fit);
 
 input.onGesture = () => sound.unlock();
 input.onFullscreen = () => {
@@ -58,7 +61,7 @@ input.onFullscreen = () => {
 
 function toggleMute(): void {
   sound.setMuted(!sound.muted);
-  game.muted = sound.muted;
+  shell.muted = sound.muted;
   try {
     localStorage.setItem('goomba-run.muted', sound.muted ? '1' : '0');
   } catch {
@@ -68,16 +71,23 @@ function toggleMute(): void {
 
 // tab icon straight from the sprite, so nothing is fetched
 const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-if (icon) icon.href = sprites.goomba.idle[0].toDataURL();
+if (icon) icon.href = sourceSprites().goomba.idle[0].toDataURL();
 
-// For poking at the game from the console. Setting `freeze` hands the clock to
-// you: step with `__goomba.game.update(1 / 60, input)` and `__goomba.renderer.draw(game)`.
-const debug = { game, renderer, input, sound, freeze: false };
+// For poking at the game from the console. Setting `shell.freeze` hands the
+// clock to you: step with `__goomba.run.advance(1 / 60, __goomba.input)`; the
+// next picture shows the result.
+const debug = {
+  game, input, sound, shell,
+  get run() {
+    return run();
+  },
+};
 (window as unknown as { __goomba: typeof debug }).__goomba = debug;
 
 // stepping away pauses the run
 const autoPause = () => {
-  if (game.mode === 'play' && !game.paused && !debug.freeze) game.togglePause();
+  const r = run();
+  if (r && r.s.mode === 'play' && !r.s.paused && !shell.freeze) r.togglePause();
 };
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) autoPause();
@@ -86,6 +96,25 @@ window.addEventListener('blur', autoPause);
 
 const inside = (p: { x: number; y: number }, r: { x: number; y: number; w: number; h: number }) =>
   p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
+
+// before the scenes move: taps go to the HUD buttons or count as a jump
+game.events.on(Phaser.Core.Events.PRE_STEP, () => {
+  if (input.mutePressed) {
+    input.mutePressed = false;
+    toggleMute();
+  }
+  for (const tap of input.taps) {
+    if (inside(tap, BTN_SOUND)) toggleMute();
+    else if (inside(tap, BTN_PAUSE) && run()?.s.mode === 'play') run()?.togglePause();
+    else input.tapJump();
+  }
+  input.taps.length = 0;
+  shell.touch = input.touch;
+});
+// ... and after them the per-frame edges are spent
+game.events.on(Phaser.Core.Events.POST_STEP, () => {
+  if (!shell.freeze) input.endFrame();
+});
 
 // On the website the game saves itself for offline play, so a copy on an
 // iPhone Home Screen or a Mac Dock keeps working without internet. A
@@ -96,57 +125,3 @@ if (import.meta.env.PROD && onWebsite && 'serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => undefined);
   });
 }
-
-// The rules run at a fixed 60 steps a second; the screen refreshes whenever it
-// likes. `ahead` is how far the rules are ahead of the picture: each frame the
-// picture's clock moves on by the time that really passed, the rules step until
-// they are level with it or just past it, and the renderer draws the moment in
-// between. So the picture moves evenly on any screen, and a step that lands a
-// hair early or late no longer shows up as a frozen frame followed by a double one.
-const STEP = 1 / 60;
-/** a frame this close (seconds) to a whole number of half steps counts as exactly that: a 60 or 120 Hz screen */
-const IN_STEP = 0.00075;
-let last = performance.now();
-let ahead = 0;
-
-function frame(now: number): void {
-  if (debug.freeze) {
-    last = now;
-    requestAnimationFrame(frame);
-    return;
-  }
-  let dt = Math.min(0.1, (now - last) / 1000);
-  last = now;
-  // browsers report frame times a little off (some only to the millisecond);
-  // on a screen that keeps step with the rules, use the exact step instead
-  const halves = Math.round(dt / (STEP / 2));
-  const inStep = halves >= 1 && Math.abs(dt - (halves * STEP) / 2) < IN_STEP;
-  if (inStep) dt = (halves * STEP) / 2;
-
-  if (input.mutePressed) {
-    input.mutePressed = false;
-    toggleMute();
-  }
-  for (const tap of input.taps) {
-    if (inside(tap, BTN_SOUND)) toggleMute();
-    else if (inside(tap, BTN_PAUSE) && game.mode === 'play') game.togglePause();
-    else input.tapJump();
-  }
-  input.taps.length = 0;
-  game.touch = input.touch;
-
-  ahead -= dt;
-  while (ahead < 0) {
-    renderer.remember(game);
-    game.update(STEP, input);
-    input.endFrame();
-    ahead += STEP;
-  }
-  // in step with the screen, the picture need not trail the rules at all (60 Hz)
-  // or by more than half a step (120 Hz): let any extra lag drain away
-  if (inStep) ahead -= Math.min(ahead % (halves % 2 === 0 ? STEP : STEP / 2), STEP * 0.02);
-  alpha = 1 - ahead / STEP;
-  renderer.draw(game, alpha);
-  requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);

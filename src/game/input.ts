@@ -1,5 +1,5 @@
 // Keyboard + pointer input, exposed as per-frame edges.
-import { H, W } from './game.ts';
+import { H, W } from './config.ts';
 
 export class Input {
   jumpPressed = false;
