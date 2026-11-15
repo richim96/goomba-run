@@ -278,6 +278,11 @@ export class Renderer {
     ctx.globalAlpha = faded ? 0.4 : 1;
     ctx.drawImage(gImg, this.snap(gx) - GOOMBA_ANCHOR.x, this.snap(gy) - GOOMBA_ANCHOR.y);
     ctx.globalAlpha = 1;
+    // holding it: his near arm wraps round the front
+    if (g.richiAnim === 'hug') {
+      const arm = this.s.richi.holdArm[g.richiFrame % this.s.richi.holdArm.length];
+      ctx.drawImage(arm, this.snap(rx) - RICHI_ANCHOR.x, GROUND - RICHI_ANCHOR.y);
+    }
 
     // ... and what he kicked over tumbles past in front of everything
     for (const d of g.debris) if (d.fate === 'drop') this.debris(d);
@@ -454,7 +459,7 @@ export class Renderer {
       drawText(ctx, word[i], x, 30 + dy, { scale: 4, color: i < 6 ? '#eaa862' : CREAM, outline: INK, shadow: '#7a3a20' });
       x += (6 - narrow) * 4;
     }
-    drawText(ctx, "DON'T LET RICHI CATCH YOU!", W / 2, 72, { align: 'center', color: CREAM, outline: INK });
+    drawText(ctx, "DON'T LET GASPARE CATCH YOU!", W / 2, 72, { align: 'center', color: CREAM, outline: INK });
     if (blinkOn(g.time)) {
       drawText(ctx, g.touch ? 'TAP TO START' : 'PRESS SPACE OR TAP', W / 2, 92, {
         align: 'center', color: GOLD, outline: INK,
@@ -486,7 +491,7 @@ export class Renderer {
     const x = W - w - 10;
     const y = 28; // below the HUD buttons
     this.panel(x, y, w, h);
-    drawText(ctx, 'RICHI CAUGHT YOU <', x + w / 2, y + 9, { align: 'center', color: PINK, outline: INK });
+    drawText(ctx, 'GASPARE CAUGHT YOU <', x + w / 2, y + 9, { align: 'center', color: PINK, outline: INK });
     drawText(ctx, String(g.score), x + w / 2, y + 23, { align: 'center', scale: 3, color: CREAM, outline: INK });
     drawText(ctx, `${g.meters} M   ${g.berries} BERRIES`, x + w / 2, y + 49, { align: 'center', color: CREAM, outline: INK });
     if (g.newBest) {
