@@ -2,29 +2,11 @@
 
 A cute pixel-art endless runner for the browser. You are a (permanently grumpy) Goomba. Richi is chasing you. Don't get caught... or do.
 
-Runs offline from a single HTML file. No install, no server, no internet.
-
 ## Play
-
-```bash
-npm install
-npm run build
-```
-
-Then double-click `dist/index.html`. That one file is the whole game: copy or AirDrop it anywhere.
-
-For development: `npm run dev` and open the printed URL (`/art.html` shows every sprite).
-
-## Install it as an app (Mac, iPhone, iPad)
-
-The game is also published as a web page:
 
 **https://richim96.github.io/goomba-run/**
 
-- **Mac:** open it in Safari, then File → Add to Dock (macOS 14 or later).
-- **iPhone and iPad:** open it in Safari, then Share → Add to Home Screen.
-
-It gets its own icon, runs in its own window or full screen, and keeps working without internet after the first visit. Every push to `main` republishes it (`.github/workflows/pages.yml`), so an installed copy picks up the latest version the next time it is opened online.
+Open the link in a browser on a Mac, iPhone or iPad. The game is played online; there is nothing to install. Every push to `main` republishes it (`.github/workflows/pages.yml`).
 
 ## Controls
 
@@ -47,6 +29,7 @@ It gets its own icon, runs in its own window or full screen, and keeps working w
 ## How it is made
 
 - TypeScript + Canvas 2D, built with Vite into one self-contained file.
+- For development: `npm install`, then `npm run dev` and open the printed URL (`/art.html` shows every sprite).
 - Every sprite is generated from code in `src/art/` (run `npm run art` to export PNGs to `art-export/`).
 - Sound effects and music are synthesised with WebAudio.
 - `npm run sim` lets a look-ahead bot play the real rules to prove every obstacle combo can be dodged and to measure how tight the jumps are.

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Goomba Run — a browser endless runner. A Goomba flees from Richi; Stingbies and scenery get in the way. TypeScript + Canvas 2D, bundled by Vite into one self-contained `dist/index.html` that runs offline by double-click. No game engine, no runtime dependencies, no asset files: sprites are generated from code and sound is synthesised.
+Goomba Run — a browser endless runner. A Goomba flees from Richi; Stingbies and scenery get in the way. TypeScript + Canvas 2D, bundled by Vite into one self-contained `dist/index.html` and played online at `https://richim96.github.io/goomba-run/`. No game engine, no runtime dependencies, no asset files: sprites are generated from code and sound is synthesised.
 
 ## Commands
 
@@ -37,12 +37,9 @@ Art lives in `src/art/` and has no DOM dependency, so the game and `scripts/bake
 - `scenery.ts` — ground, hills (320px-periodic), clouds, trees, sky themes.
 - `font.ts` — 7px bitmap font.
 
-## Shipping forms
+## Shipping
 
-One build, two ways to run it, both from the same `dist/index.html`:
-
-- **File:** `dist/index.html` double-clicked or emailed. Nothing else needed.
-- **Website (the install route for Mac, iPhone and iPad):** on a Mac, Safari's File → Add to Dock; on iPhone/iPad, Share → Add to Home Screen. Published to GitHub Pages at `https://richim96.github.io/goomba-run/` by `.github/workflows/pages.yml` on every push to `main`. `public/manifest.webmanifest` + `public/sw.js` (network first, cache fallback) let it be saved to a Home Screen and run offline; `main.ts` registers the service worker only in production builds served over HTTPS or localhost. The owner chose this knowingly: the address is public. iPhone and iPad have no file-based install, and a native app there would need Xcode plus Apple developer signing.
+The game is played online only, at `https://richim96.github.io/goomba-run/`, published to GitHub Pages by `.github/workflows/pages.yml` on every push to `main`. The owner decided this (2026-11-15): do not document or suggest local installs (a double-clicked or emailed `dist/index.html`, Add to Dock, Add to Home Screen). The address is public, which the owner chose knowingly. `public/manifest.webmanifest` + `public/sw.js` (network first, cache fallback) still ship; `main.ts` registers the service worker only in production builds served over HTTPS or localhost.
 
 `scripts/make-icons.ts` draws every icon from the Goomba sprite in pure node (web PNGs into `public/icons/`).
 
