@@ -40,8 +40,8 @@ function render(text: string, o: TextOpts): HTMLCanvasElement {
   return c;
 }
 
-/** draws bitmap text; (x, y) is the top-left / top-centre / top-right of the glyph box */
-export function drawText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, o: TextOpts = {}): void {
+/** the picture of a piece of bitmap text, and where its top-left corner goes when (x, y) is the top-left / top-centre / top-right of the glyph box */
+export function textImage(text: string, x: number, y: number, o: TextOpts = {}): { img: HTMLCanvasElement; key: string; left: number; top: number } {
   const key = `${text}|${o.color}|${o.scale}|${o.outline}|${o.shadow}`;
   let img = cache.get(key);
   if (!img) {
@@ -53,7 +53,7 @@ export function drawText(ctx: CanvasRenderingContext2D, text: string, x: number,
   const pad = (o.outline || o.shadow ? 1 : 0) * k;
   const w = textWidth(text) * k;
   const left = o.align === 'center' ? x - w / 2 : o.align === 'right' ? x - w : x;
-  ctx.drawImage(img, Math.round(left - pad), Math.round(y - pad));
+  return { img, key, left: left - pad, top: y - pad };
 }
 
 export { textWidth };

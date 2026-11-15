@@ -33,7 +33,7 @@ It gets its own icon, runs in its own window or full screen, and keeps working w
 
 ## How it is made
 
-- TypeScript + Canvas 2D, built with Vite into one self-contained file.
+- TypeScript + [Phaser 4](https://phaser.io) (Arcade Physics), built with Vite into one self-contained file.
 - Every sprite is generated from code in `src/art/` (run `npm run art` to export PNGs to `art-export/`).
 - Sound effects and music are synthesised with WebAudio.
-- `npm run sim` lets a look-ahead bot play the real rules to prove every obstacle combo can be dodged and to measure how tight the jumps are.
+- `npm run sim` opens a page where a look-ahead bot plays the real rules and physics to prove every obstacle combo can be dodged and to measure how tight the jumps are.

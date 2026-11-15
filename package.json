@@ -8,12 +8,15 @@
     "build": "tsc --noEmit && npm run icons --silent && vite build",
     "preview": "vite preview",
     "art": "node --no-warnings scripts/bake.ts",
-    "sim": "node --no-warnings scripts/sim.ts",
+    "sim": "vite --open /sim.html",
     "icons": "node --no-warnings scripts/make-icons.ts"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vite-plugin-singlefile": "^2.3.4"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
   }
 }
