@@ -1,6 +1,6 @@
 import type { Input } from './input.ts';
 import type { Sound } from './audio.ts';
-import { RICHI_HEAD } from '../art/richi.ts';
+import { RICHI_HOLD } from '../art/richi.ts';
 
 // ---- tuning -------------------------------------------------------------
 
@@ -45,9 +45,7 @@ export const FAR_TIME = 0.85;
 /** height of the flattened Stingby sprite */
 const FLAT_H = 14;
 // the catch celebration: Richi tosses the Goomba up and catches it, over and over
-const TOSS_PERIOD = 1.15; // seconds per toss
-const TOSS_AIR = 0.6; // share of that spent in the air
-const TOSS_HEIGHT = 18; // px
+const TOSS_PERIOD = 1.15; // seconds per rock from side to side while he holds it
 
 /** where Richi runs for each number of hearts left */
 const RICHI_X = [PLAYER_X - 8, 62, 30, 2];
@@ -558,16 +556,12 @@ export class Game {
 
   /** Richi bounces with the Goomba held overhead, hearts drifting up */
   private hugBounce(dt: number, heartEvery: number): void {
-    // scooped up from the ground into his raised hands, then tossed and caught
-    let up = 0;
-    if (this.hugT >= 1) {
-      this.tossT += dt;
-      const u = this.tossPhase();
-      if (u < TOSS_AIR) up = 4 * TOSS_HEIGHT * (u / TOSS_AIR) * (1 - u / TOSS_AIR);
-    }
+    // scooped up from the ground and held tight in his arms: no escape, no bouncing
+    if (this.hugT >= 1) this.tossT += dt;
     const k = 1 - (1 - this.hugT) ** 3;
-    this.gx = this.hugFromX + (this.rx + RICHI_HEAD.x - this.hugFromX) * k;
-    this.gy = GROUND + RICHI_HEAD.y * k - up;
+    const sway = this.hugT >= 1 && this.tossPhase() >= 0.5 ? 1 : 0; // he rocks it gently
+    this.gx = this.hugFromX + (this.rx + RICHI_HOLD.x - this.hugFromX) * k;
+    this.gy = GROUND + RICHI_HOLD.y * k - sway;
     this.heartT -= dt;
     if (this.heartT <= 0) {
       this.heartT = heartEvery;
@@ -575,7 +569,7 @@ export class Game {
     }
   }
 
-  /** 0..1 through the current toss: in the air until TOSS_AIR, then resting in his hands */
+  /** 0..1 through the current rock while he holds it */
   private tossPhase(): number {
     return (this.tossT % TOSS_PERIOD) / TOSS_PERIOD;
   }
@@ -900,17 +894,9 @@ export class Game {
       this.runT += dt * 0.75;
       this.goombaFrame = Math.floor(this.runT * 8);
     } else if (this.hugging || this.mode === 'over') {
-      // frames: 0 held, 1 squashed on the catch, 2 going up, 3 coming down, 4 blink
-      this.goombaAnim = 'love';
-      const u = this.tossPhase();
-      const settled = this.hugT >= 1;
-      if (!settled) this.goombaFrame = 0;
-      else if (u < TOSS_AIR * 0.5) this.goombaFrame = 2;
-      else if (u < TOSS_AIR) this.goombaFrame = 3;
-      else if (u < TOSS_AIR + 0.1) this.goombaFrame = 1;
-      // an unhurried blink, once every third toss
-      else if (Math.floor(this.tossT / TOSS_PERIOD) % 3 === 2 && u > 0.84 && u < 0.94) this.goombaFrame = 4;
-      else this.goombaFrame = 0;
+      // trapped: just its usual scowl, stuck in his arms
+      this.goombaAnim = 'idle';
+      this.goombaFrame = 0;
     } else if (this.mode === 'caught' || this.hurtT > 0) {
       this.goombaAnim = 'hurt';
       this.goombaFrame = 0;
@@ -929,8 +915,8 @@ export class Game {
     // richi
     if (this.hugging || this.mode === 'over') {
       this.richiAnim = 'hug';
-      // he stretches up for the throw, then stands and waits for the catch
-      this.richiFrame = this.hugT >= 1 && this.tossPhase() < 0.14 ? 1 : 0;
+      // a slow rock from side to side, the Goomba going with him
+      this.richiFrame = this.hugT >= 1 && this.tossPhase() >= 0.5 ? 1 : 0;
     } else if (this.fistT > 0 && this.fistT >= this.kickT) {
       // his legs keep running under a punch; for a smash he plants his feet
       this.richiAnim = this.fistBlow === 'punch' ? 'punch' : 'smash';
